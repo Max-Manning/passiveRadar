@@ -3,7 +3,7 @@ import scipy.signal as signal
 from PRutils import shift, shift_circ
 
 
-def find_channel_offset(s1, s2, nd=32, nl = 100):
+def find_channel_offset(s1, s2, nd=32, nl=100):
     B1 = signal.decimate(s1, nd)
     B2 = np.pad(signal.decimate(s2, nd), (nl, nl), 'constant')
     xc = np.abs(signal.correlate(B1, B2, mode='valid'))

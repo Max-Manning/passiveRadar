@@ -1,7 +1,6 @@
 import numpy as np
 import scipy.signal as signal
 
-
 def decimate(x, q):
     return signal.decimate(x, q, n=127, ftype='fir', axis=0, zero_phase=False)
 

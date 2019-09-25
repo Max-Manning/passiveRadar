@@ -8,7 +8,6 @@ from PRalgo import fast_xambg, find_channel_offset, Apply_LS_Filter
 
 def pad_to_chunks(darray, chunklen):
     padlen = chunklen - np.mod(darray.shape[0], chunklen)
-    print(padlen)
     pad = da.zeros((padlen,), dtype=np.complex64)
     padded = da.concatenate([darray, pad], axis=0)
     return padded
@@ -17,13 +16,19 @@ def pad_to_chunks(darray, chunklen):
 def offset_compensation(x1, x2, ndec):
     s1 = x1[0:1000000]
     s2 = x2[0:1000000]
-
     os = find_channel_offset(s1, s2, ndec, 6*ndec)
-
     if(os == 0):
         return x2
     else:
         return shift(x2, os)
+
+
+def getXambg(s1, s2, nlag, nfft, nblocks):
+    cl = s1.shape[0]//nblocks
+    XX = np.zeros((nfft, 2*nlag+1, nblocks), dtype=np.float)
+    for k in range(nblocks):
+        XX[:,:,k] = fast_xambg(s1[k*cl:(k+1)*cl], s2[k*cl:(k+1)*cl], nlag, nfft)
+    return XX
 
 
 if __name__ == "__main__":
@@ -45,16 +50,16 @@ if __name__ == "__main__":
 
     # DEINTERLEAVING IQ DATA
 
-    ref_IQ_r = da.map_blocks(deinterleave_IQ, ref_dat, dtype = np.complex64, chunks=(chunk_length//2,))
-    srv_IQ_r = da.map_blocks(deinterleave_IQ, srv_dat, dtype = np.complex64, chunks=(chunk_length//2,))
+    ref_IQ_r = da.map_blocks(deinterleave_IQ, ref_dat, dtype=np.complex64, chunks=(chunk_length//2,))
+    srv_IQ_r = da.map_blocks(deinterleave_IQ, srv_dat, dtype=np.complex64, chunks=(chunk_length//2,))
 
     # TUNING TO CHANNEL AND DECIMATING
 
-    r2 = da.map_blocks(frequency_shift, ref_IQ_r, 2.e5, 2.4e6, dtype = np.complex64, chunks=(chunk_length//2,))
-    r3 = da.map_blocks(decimate, r2, 5, dtype = np.complex64, chunks=(chunk_length//10,))
+    r2 = da.map_blocks(frequency_shift, ref_IQ_r, 2.e5, 2.4e6, dtype=np.complex64, chunks=(chunk_length//2,))
+    r3 = da.map_blocks(decimate, r2, 5, dtype=np.complex64, chunks=(chunk_length//10,))
     
-    s2 = da.map_blocks(frequency_shift, srv_IQ_r, 2.e5, 2.4e6, dtype = np.complex64, chunks=(chunk_length//2,))
-    s3 = da.map_blocks(decimate, s2, 5, dtype = np.complex64, chunks=(chunk_length//10,))
+    s2 = da.map_blocks(frequency_shift, srv_IQ_r, 2.e5, 2.4e6, dtype=np.complex64, chunks=(chunk_length//2,))
+    s3 = da.map_blocks(decimate, s2, 5, dtype=np.complex64, chunks=(chunk_length//10,))
 
     # CHANNEL OFFSET COMPENSATION
 
@@ -65,6 +70,11 @@ if __name__ == "__main__":
 
     arg1 = (r3, s3o2, 250, 0.1)
     SRV_CLEANED = da.map_blocks(Apply_LS_Filter, *arg1, dtype=np.complex64, chunks = (chunk_length//10,))
+
+    # COMPUTE CROSS-AMBIGUITY FUNCTION
+
+    xarg = (r3, SRV_CLEANED, 150, 256)
+    XAMBG = da.map_blocks(getXambg, *xarg, dtype=np.float, chunks=(256,301,5))
 
     # f = h5py.File('outfile3.hdf5')
     # d = f.require_dataset('/data', shape=SRV_CLEANED.shape, dtype=SRV_CLEANED.dtype)
