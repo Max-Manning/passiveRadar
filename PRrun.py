@@ -3,7 +3,7 @@ import h5py
 import dask.array as da
 from dask.diagnostics import ProgressBar
 from PRutils import decimate, deinterleave_IQ, frequency_shift, shift
-from PRalgo import fast_xambg, find_channel_offset, Apply_LS_Filter
+from PRalgo import fast_xambg, find_channel_offset, LS_Filter
 
 
 def pad_to_chunks(darray, chunklen):
@@ -29,6 +29,18 @@ def getXambg(s1, s2, nlag, nfft, nblocks):
     for k in range(nblocks):
         XX[:,:,k] = fast_xambg(s1[k*cl:(k+1)*cl], s2[k*cl:(k+1)*cl], nlag, nfft)
     return XX
+
+def Apply_LS_Filter(s1, s2, nl, reg, nblocks=5):
+    '''Apply a LS filter to a dask chunk'''
+    Bl = 524288
+    y = np.zeros(s2.shape, dtype=np.complex64)
+
+    for j in range(nblocks):
+        yb = LS_Filter(s1[j*Bl:(j+1)*Bl], s2[j*Bl:(j+1)*Bl], nl, reg)
+        y[j*Bl:(j+1)*Bl] = yb
+
+    return y
+
 
 
 if __name__ == "__main__":
@@ -73,14 +85,15 @@ if __name__ == "__main__":
 
     # COMPUTE CROSS-AMBIGUITY FUNCTION
 
-    xarg = (r3, SRV_CLEANED, 150, 256)
+    xarg = (r3, SRV_CLEANED, 150, 256, 5)
     XAMBG = da.map_blocks(getXambg, *xarg, dtype=np.float, chunks=(256,301,5))
 
-    # f = h5py.File('outfile3.hdf5')
-    # d = f.require_dataset('/data', shape=SRV_CLEANED.shape, dtype=SRV_CLEANED.dtype)
-    # # res.visualize()
+    # f = h5py.File('xambg_out_1.hdf5')
+    # d = f.require_dataset('/xambg', shape=SRV_CLEANED.shape, dtype=SRV_CLEANED.dtype)
+    # res.visualize()
 
-    # with ProgressBar():
-    #     da.store(SRV_CLEANED, d)
+    with ProgressBar():
+        # da.store(SRV_CLEANED, d)
+        A = XAMBG.compute()
 
     # f.close()

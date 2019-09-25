@@ -4,6 +4,7 @@ from PRutils import shift, shift_circ
 
 
 def find_channel_offset(s1, s2, nd=32, nl=100):
+    '''use cross-correlation to find channel offset in samples'''
     B1 = signal.decimate(s1, nd)
     B2 = np.pad(signal.decimate(s2, nd), (nl, nl), 'constant')
     xc = np.abs(signal.correlate(B1, B2, mode='valid'))
@@ -23,27 +24,15 @@ def fast_xambg(s1, s2, nlag, nfft):
 
 
 def LS_Filter(s1, s2, nlag, reg):
-
+    '''Use least squares minimization to remove static echoes'''
     A = np.zeros((s1.shape[0], nlag+10), dtype=np.complex64)
     lags = np.arange(-10, nlag)
     for k in range(lags.shape[0]):
         A[:, k] = shift(s1, lags[k])
     ATA = A.conj().T @ A
     K = np.eye(ATA.shape[0])
+    
     w = np.linalg.solve(ATA + K*reg, A.conj().T @ s2)
     y = s2 - A @ w
 
     return y
-
-
-def Apply_LS_Filter(s1, s2, nl, reg, nblocks=5):
-    '''Apply a LS filter'''
-    Bl = 524288
-    y = np.zeros(s2.shape, dtype=np.complex64)
-
-    for j in range(nblocks):
-        yb = LS_Filter(s1[j*Bl:(j+1)*Bl], s2[j*Bl:(j+1)*Bl], nl, reg)
-        y[j*Bl:(j+1)*Bl] = yb
-
-    return y
-
