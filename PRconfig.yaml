@@ -1,0 +1,31 @@
+# input options
+inputFile: 'PassiveRadar_20191102_1011.hdf5'
+inputType: 'ichar' # samples expressed as interleaved fp32 or char
+inputSampleRate: 2400000
+inputCenterFreq: 102000000
+channelFreq: 101900000
+channelBW: 200000
+
+# TODO: implement multi-channel functionality like this
+# # input channels
+# Channels:
+# - channelnum: 1
+#   channelFreq: 101300000
+#   bandwidth: 200000
+
+# - channelnum: 2
+#   channelFreq: 101900000
+#   bandwidth: 200000
+
+# - channelnum: 3
+#   channelFreq: 102700000
+#   bandwidth: 200000
+#
+# channelSum: 'incoherent'
+
+# output options
+rangeCells: 200
+dopplerCells: 512
+outputFile: 'PassiveRadar_20191102_1011_XAMBG1.hdf5'
+
+

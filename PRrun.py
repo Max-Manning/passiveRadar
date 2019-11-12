@@ -1,4 +1,5 @@
 import numpy as np
+import yaml
 import h5py
 import dask.array as da
 from dask.diagnostics import ProgressBar
@@ -42,9 +43,13 @@ if __name__ == "__main__":
 
     chunk_length = 25624400  # 512488*2*5*5 (# CPI samples)*(2 floats/complex)*(decimation factor)*(5 CPIs/chunk)
 
+    yf = open('PRconfig.yaml', 'r')
+    PRconfig = yaml.safe_load(yf)
+    yf.close()
+
     # LOADING DATA
 
-    h5file = h5py.File('PassiveRadar_20191102_1011.hdf5', 'r')
+    h5file = h5py.File(PRconfig['inputFile'], 'r')
     ref_data = da.from_array(h5file['/data/ref'],  chunks = (chunk_length,))
     srv_data = da.from_array(h5file['/data/srv'], chunks = (chunk_length,))
     
@@ -62,10 +67,13 @@ if __name__ == "__main__":
 
     # TUNING TO CHANNEL AND DECIMATING
 
-    r2 = da.map_blocks(frequency_shift, ref_IQ_r, -7.e5, 2.4e6, dtype=np.complex64, chunks=(chunk_length//2,))
+    tuneFreq = PRconfig['inputCenterFreq'] - PRconfig['channelFreq']
+    Fs0 = PRconfig['inputSampleRate']
+
+    r2 = da.map_blocks(frequency_shift, ref_IQ_r, tuneFreq, Fs0, dtype=np.complex64, chunks=(chunk_length//2,))
     r3 = da.map_blocks(decimate, r2, 10, dtype=np.complex64, chunks=(chunk_length//20,))
     
-    s2 = da.map_blocks(frequency_shift, srv_IQ_r, -7.e5, 2.4e6, dtype=np.complex64, chunks=(chunk_length//2,))
+    s2 = da.map_blocks(frequency_shift, srv_IQ_r,  tuneFreq, Fs0, dtype=np.complex64, chunks=(chunk_length//2,))
     s3 = da.map_blocks(decimate, s2, 10, dtype=np.complex64, chunks=(chunk_length//20,))
 
     # CHANNEL OFFSET COMPENSATION
@@ -78,10 +86,10 @@ if __name__ == "__main__":
     arg1 = (r3, s3o2, 120, 1)
     SRV_CLEANED_1 = da.map_blocks(Apply_LS_Filter, *arg1, dtype=np.complex64, chunks = (chunk_length//20,))
 
-    rs05p = da.map_blocks(frequency_shift, r3,  1, 2.4e5, dtype=np.complex64, chunks=(chunk_length//20,))
-    rs05n = da.map_blocks(frequency_shift, r3, -1, 2.4e5, dtype=np.complex64, chunks=(chunk_length//20,))
-    rs1p = da.map_blocks(frequency_shift, r3,  2, 2.4e5, dtype=np.complex64, chunks=(chunk_length//20,))
-    rs1n = da.map_blocks(frequency_shift, r3, -2, 2.4e5, dtype=np.complex64, chunks=(chunk_length//20,))
+    rs05p = da.map_blocks(frequency_shift, r3,  1, Fs0//10, dtype=np.complex64, chunks=(chunk_length//20,))
+    rs05n = da.map_blocks(frequency_shift, r3, -1, Fs0//10, dtype=np.complex64, chunks=(chunk_length//20,))
+    rs1p = da.map_blocks(frequency_shift, r3,  2, Fs0//10, dtype=np.complex64, chunks=(chunk_length//20,))
+    rs1n = da.map_blocks(frequency_shift, r3, -2, Fs0//10, dtype=np.complex64, chunks=(chunk_length//20,))
 
     arg1 = (rs05p, SRV_CLEANED_1, 120, 1)
     SRV_CLEANED_2 = da.map_blocks(Apply_LS_Filter, *arg1, dtype=np.complex64, chunks = (chunk_length//20,))
@@ -102,15 +110,9 @@ if __name__ == "__main__":
     xarg = (r3, SRV_CLEANED_5, 200, 512, 5)
     XAMBG = da.map_blocks(getXambg, *xarg, dtype=np.complex64, chunks=(512,201,5))
 
-    f = h5py.File('XAMBG_1011_1027M_250km_256Hz_filt120_012.hdf5')
+    f = h5py.File(PRconfig['outputFile'])
     d = f.require_dataset('/xambg', shape=XAMBG.shape, dtype=XAMBG.dtype)
 
     with ProgressBar():
         da.store(XAMBG, d)
-        # A = XAMBG.compute()
-
     f.close()
-    
-    # np.save("PR_20191025_1027_200c.npy", A)
-
-    # f.close()
