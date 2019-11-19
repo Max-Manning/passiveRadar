@@ -1,10 +1,19 @@
 # input options
-inputFile: 'PassiveRadar_20191102_1011.hdf5'
+inputFile: 'PassiveRadar_20191102_1011.hdf5' #HDF5 file containing data
+inputReferencePath: '/data/ref'        # path to reference channel in hdf5 file
+inputSurveillancePath: '/data/srv'     # path to surveillance channel in hdf5 file
 inputType: 'ichar' # samples expressed as interleaved fp32 or char
 inputSampleRate: 2400000
 inputCenterFreq: 102000000
 channelFreq: 101900000
-channelBW: 200000
+channelBW: 200000     # bandwidth of channel (200kHz unless it's a HD radio channel)
+
+
+# processing options
+LS_filter_length: 120 # number of range cells for least squares filtering
+blockLength: 262144
+GPU_accel: n          # use GPU acceleration? Only if we can get this to work lol
+
 
 # TODO: implement multi-channel functionality like this
 # # input channels

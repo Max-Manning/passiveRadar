@@ -105,14 +105,14 @@ if __name__ == "__main__":
 
 
 
-    # COMPUTE CROSS-AMBIGUITY FUNCTION
+    # # COMPUTE CROSS-AMBIGUITY FUNCTION
 
-    xarg = (r3, SRV_CLEANED_5, 200, 512, 5)
-    XAMBG = da.map_blocks(getXambg, *xarg, dtype=np.complex64, chunks=(512,201,5))
+    # xarg = (r3, SRV_CLEANED_5, 200, 512, 5)
+    # XAMBG = da.map_blocks(getXambg, *xarg, dtype=np.complex64, chunks=(512,201,5))
 
-    f = h5py.File(PRconfig['outputFile'])
-    d = f.require_dataset('/xambg', shape=XAMBG.shape, dtype=XAMBG.dtype)
+    # f = h5py.File(PRconfig['outputFile'])
+    # d = f.require_dataset('/xambg', shape=XAMBG.shape, dtype=XAMBG.dtype)
 
-    with ProgressBar():
-        da.store(XAMBG, d)
-    f.close()
+    # with ProgressBar():
+    #     da.store(XAMBG, d)
+    # f.close()
