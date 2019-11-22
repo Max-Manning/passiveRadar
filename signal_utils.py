@@ -1,6 +1,10 @@
 import numpy as np
 import scipy.signal as signal
 
+def normalize(x):
+    '''normalize ndarray to unit mean'''
+    return x/np.mean(np.abs(x).flatten())
+
 def decimate(x, q):
     '''decimate x by a factor of q'''
     return signal.decimate(x, q, n=255, ftype='fir', axis=0, zero_phase=False)
