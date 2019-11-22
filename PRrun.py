@@ -12,6 +12,28 @@ def pad_to_chunks(darray, chunklen):
     padded = da.concatenate([darray, pad], axis=0)
     return padded
 
+def clutter_removal(s1, s2, nlag, Fs, dbins = [0]):
+    '''clutter removal with least square filter
+
+    Parameters:
+    s1: reference signal
+    s2: surveillance signal
+    nlag: length of least squares filter
+    Fs: input signal sample frequency
+    dbins: list of doppler bins to do filtering on (default 0)
+    
+    returns: y (surveillance signal with static echoes removed)'''
+    y = s2
+    for ds in dbins:
+        if ds == 0:
+            y = LS_Filter(s1, y, nlag, 1)
+        else:
+            s1s = frequency_shift(s1, ds, Fs)
+            y = LS_Filter(s1s, y, nlag, 1)
+    return y
+
+    
+
 if __name__ == "__main__":
 
     # GET CONFIG PARAMETERS
@@ -26,8 +48,8 @@ if __name__ == "__main__":
     # LOADING DATA
 
     h5file = h5py.File(PRconfig['inputFile'], 'r')
-    ref_data = da.from_array(h5file[PRconfig['inputReferencePath']][0:9*chunk_length],  chunks = (chunk_length,))
-    srv_data = da.from_array(h5file[PRconfig['inputSurveillancePath']][0:9*chunk_length], chunks = (chunk_length,))
+    ref_data = da.from_array(h5file[PRconfig['inputReferencePath']][0:3*chunk_length],  chunks = (chunk_length,))
+    srv_data = da.from_array(h5file[PRconfig['inputSurveillancePath']][0:3*chunk_length], chunks = (chunk_length,))
     
     # PADDING TO INTEGER NUMBER OF CHUNK LENGTHS
 
@@ -59,30 +81,13 @@ if __name__ == "__main__":
 
     # APPLY LS FILTER
 
-    arg1 = (r3, s3o2, 120, 1)
-    SRV_CLEANED_1 = da.map_blocks(LS_Filter, *arg1, dtype=np.complex64, chunks = (chunk_length//20,))
-
-    rs05p = da.map_blocks(frequency_shift, r3,  1, Fs0//10, dtype=np.complex64, chunks=(chunk_length//20,))
-    rs05n = da.map_blocks(frequency_shift, r3, -1, Fs0//10, dtype=np.complex64, chunks=(chunk_length//20,))
-    rs1p = da.map_blocks(frequency_shift, r3,  2, Fs0//10, dtype=np.complex64, chunks=(chunk_length//20,))
-    rs1n = da.map_blocks(frequency_shift, r3, -2, Fs0//10, dtype=np.complex64, chunks=(chunk_length//20,))
-
-    arg1 = (rs05p, SRV_CLEANED_1, 120, 1)
-    SRV_CLEANED_2 = da.map_blocks(LS_Filter, *arg1, dtype=np.complex64, chunks = (chunk_length//20,))
-
-    arg1 = (rs05n, SRV_CLEANED_2, 120, 1)
-    SRV_CLEANED_3 = da.map_blocks(LS_Filter, *arg1, dtype=np.complex64, chunks = (chunk_length//20,))
-
-    arg1 = (rs1p, SRV_CLEANED_3, 120, 1)
-    SRV_CLEANED_4 = da.map_blocks(LS_Filter, *arg1, dtype=np.complex64, chunks = (chunk_length//20,))
-
-    arg1 = (rs1n, SRV_CLEANED_4, 120, 1)
-    SRV_CLEANED_5 = da.map_blocks(LS_Filter, *arg1, dtype=np.complex64, chunks = (chunk_length//20,))
+    arg1 = (r3, s3o2, 120, Fs0//10, [0,1,-1,2,-2])
+    SRV_CLEANED = da.map_blocks(clutter_removal, *arg1, dtype=np.complex64, chunks = (chunk_length//20,))
 
     # # COMPUTE CROSS-AMBIGUITY FUNCTION
 
-    xarg = (r3, SRV_CLEANED_5, 200, 512)
-    XAMBG = da.map_blocks(fast_xambg, *xarg, dtype=np.complex64, chunks=(512,201,1))
+    xarg = (r3, SRV_CLEANED, 400, 512)
+    XAMBG = da.map_blocks(fast_xambg, *xarg, dtype=np.complex64, chunks=(512,401,1))
 
     f = h5py.File(PRconfig['outputFile'])
     d = f.require_dataset('/xambg', shape=XAMBG.shape, dtype=XAMBG.dtype)
