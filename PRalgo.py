@@ -15,7 +15,7 @@ def fast_xambg(s1, s2, nlag, nfft):
 
     '''
     if s1.shape != s2.shape:
-        raise ValueError('Vectors must be the same length')
+        raise ValueError('Input vectors must have the same length')
     ndecim = int(s1.shape[0]/nfft)
     xambg = np.zeros((nfft, nlag+1, 1), dtype=np.complex64)
     s2c = np.conj(s2)
@@ -38,6 +38,8 @@ def LS_Filter(s1, s2, nlag, reg=1):
     y: surveillance signal with direct path interference and clutter removed
 
     '''
+    if s1.shape != s2.shape:
+        raise ValueError('Input vectors must have the same length')
     A = np.zeros((s1.shape[0], nlag+5), dtype=np.complex64)
     lags = np.arange(-5, nlag)
     for k in range(lags.shape[0]):
@@ -52,6 +54,8 @@ def LS_Filter(s1, s2, nlag, reg=1):
 
 def find_channel_offset(s1, s2, nd=32, nl=100):
     '''use cross-correlation to find offset between two channels in samples'''
+    if s1.shape != s2.shape:
+        raise ValueError('Input vectors must have the same length')
     B1 = signal.decimate(s1, nd)
     B2 = np.pad(signal.decimate(s2, nd), (nl, nl), 'constant')
     xc = np.abs(signal.correlate(B1, B2, mode='valid'))
@@ -69,6 +73,9 @@ def offset_compensation(x1, x2, ndec):
 
     s1 = x1[0:1000000]
     s2 = x2[0:1000000]
+    # Q: is using a million samples to find the channel offset huge overkill?
+    # A: yes, definitely.
+
     os = find_channel_offset(s1, s2, ndec, 6*ndec)
     if(os == 0):
         return x2
