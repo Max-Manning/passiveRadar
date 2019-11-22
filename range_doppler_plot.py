@@ -38,7 +38,7 @@ def CFAR(X, fw, gw, thresh):
     e2 = fw - e1 + 1
     Tfilt[e1:e2, e1:e2] = 0
 
-    CR = X / signal.convolve(X, Tfilt, mode='same')
+    CR = X / (signal.convolve(X, Tfilt, mode='same', boundary='wrap') + 1e-10)
     return CR > thresh
 
 if __name__ == "__main__":
@@ -47,12 +47,12 @@ if __name__ == "__main__":
     xambg = normalize(abs(f['/xambg'][:,:,:]))
     f.close()
 
-    xambg = xambg[:,:,100:200]
+    # xambg = xambg[:,:,100:200]
 
     Nframes = xambg.shape[2]
 
     # CFAR filtering
-    CF = np.empty_like(xambg)
+    CF = np.zeros_like(xambg)
     for i in range(Nframes):
         CF[:,:,i] = CFAR(xambg[:,:,i], 20, 5, 3)
     
@@ -63,15 +63,15 @@ if __name__ == "__main__":
         
         figure = plt.figure()
 
-        data = persistence(CF, kk, 20, 0.9)
+        data = persistence(CF, kk, 20, 0.88)
         data = np.fliplr(data.T) # get the orientation rights
 
         # crop to region of interest
         data = data[:, 64:448]
 
         vmn = np.percentile(data.flatten(), 1)
-        vmx = 2*np.percentile(data.flatten(),99)
-        plt.imshow(data,cmap = 'viridis', vmin=vmn, vmax=vmx, extent = [-192,192,0,250])
+        vmx = 1.5*np.percentile(data.flatten(),99)
+        plt.imshow(data,cmap = 'jet', vmin=vmn, vmax=vmx, extent = [-192,192,0,250])
         plt.ylabel('Bistatic Range (km)')
         plt.xlabel('Doppler Shift (Hz)')
     #    plt.plot(np.abs(mframes[kk,:]))
