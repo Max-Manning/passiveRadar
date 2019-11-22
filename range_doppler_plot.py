@@ -38,7 +38,7 @@ def CFAR(X, fw, gw, thresh):
     e2 = fw - e1 + 1
     Tfilt[e1:e2, e1:e2] = 0
 
-    CR = X / (signal.convolve(X, Tfilt, mode='same', boundary='wrap') + 1e-10)
+    CR = X / (signal.convolve2d(X, Tfilt, mode='same', boundary='wrap') + 1e-10)
     return CR > thresh
 
 if __name__ == "__main__":
