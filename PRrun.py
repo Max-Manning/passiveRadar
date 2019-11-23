@@ -32,7 +32,12 @@ def clutter_removal(s1, s2, nlag, Fs, dbins = [0]):
             y = LS_Filter(s1s, y, nlag, 1)
     return y
 
-    
+def channel_preprocessing(sig, dec, fc, Fs):
+    '''deinterleave IQ samples, tune to channel frequency and decimate'''
+    IQ = deinterleave_IQ(sig)
+    IQ_tuned = frequency_shift(IQ, fc, Fs)
+    IQd = decimate(IQ_tuned, dec)
+    return IQd
 
 if __name__ == "__main__":
 
@@ -58,35 +63,27 @@ if __name__ == "__main__":
     srv_dat = pad_to_chunks(srv_data, chunk_length)
     srv_dat = srv_dat.rechunk((chunk_length,))
 
-    # DEINTERLEAVING IQ DATA
-
-    ref_IQ_r = da.map_blocks(deinterleave_IQ, ref_dat, dtype=np.complex64, chunks=(chunk_length//2,))
-    srv_IQ_r = da.map_blocks(deinterleave_IQ, srv_dat, dtype=np.complex64, chunks=(chunk_length//2,))
-
-    # TUNING TO CHANNEL AND DECIMATING
+    # DEINTERLEAVING DATA, TUNING TO CHANNEL AND DECIMATING
 
     tuneFreq = PRconfig['inputCenterFreq'] - PRconfig['channelFreq']
     Fs0 = PRconfig['inputSampleRate']
 
-    r2 = da.map_blocks(frequency_shift, ref_IQ_r, tuneFreq, Fs0, dtype=np.complex64, chunks=(chunk_length//2,))
-    r3 = da.map_blocks(decimate, r2, 10, dtype=np.complex64, chunks=(chunk_length//20,))
-    
-    s2 = da.map_blocks(frequency_shift, srv_IQ_r,  tuneFreq, Fs0, dtype=np.complex64, chunks=(chunk_length//2,))
-    s3 = da.map_blocks(decimate, s2, 10, dtype=np.complex64, chunks=(chunk_length//20,))
+    r2 = da.map_blocks(channel_preprocessing, ref_dat, 10, tuneFreq, Fs0,dtype=np.complex64, chunks=(chunk_length//20,))
+    s2 = da.map_blocks(channel_preprocessing, srv_dat, 10, tuneFreq, Fs0,dtype=np.complex64, chunks=(chunk_length//20,))
 
     # CHANNEL OFFSET COMPENSATION
 
-    s3o = da.map_blocks(offset_compensation, r3, s3, 32, dtype=np.complex64, chunks = (chunk_length//20,))
-    s3o2 = da.map_blocks(offset_compensation, r3, s3o, 3, dtype=np.complex64, chunks = (chunk_length//20,))
+    s2o = da.map_blocks(offset_compensation, r2, s2, 32, dtype=np.complex64, chunks = (chunk_length//20,))
+    s2o2 = da.map_blocks(offset_compensation, r2, s2o, 3, dtype=np.complex64, chunks = (chunk_length//20,))
 
     # APPLY LS FILTER
 
-    arg1 = (r3, s3o2, 120, Fs0//10, [0,1,-1,2,-2])
+    arg1 = (r2, s2o2, 120, Fs0//10, [0,1,-1,2,-2])
     SRV_CLEANED = da.map_blocks(clutter_removal, *arg1, dtype=np.complex64, chunks = (chunk_length//20,))
 
     # # COMPUTE CROSS-AMBIGUITY FUNCTION
 
-    xarg = (r3, SRV_CLEANED, 400, 512)
+    xarg = (r2, SRV_CLEANED, 400, 512)
     XAMBG = da.map_blocks(fast_xambg, *xarg, dtype=np.complex64, chunks=(512,401,1))
 
     f = h5py.File(PRconfig['outputFile'])
