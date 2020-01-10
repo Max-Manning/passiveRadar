@@ -103,7 +103,7 @@ def LS_Filter_Toeplitz(ref, srv, nlag):
     by assuming that the autocorrelation matrix of the reference channel signal 
     is Hermitian and Toeplitz. Faster than the direct matrix inversion method,
     but inaccurate if the assumptions are violated (i.e. if the input signal is
-    not wide sense stationary)
+    not wide sense stationary.)
     
     
     Parameters:
@@ -118,7 +118,7 @@ def LS_Filter_Toeplitz(ref, srv, nlag):
     # compute the first column of the autocorelation matrix of ref
     c = xcorr(ref, ref, nlag)
 
-    # compute the cross-correlation matrix of ref and srv
+    # compute the cross-correlation of ref and srv
     r = xcorr(srv, ref, nlag)
 
     # solve the Toeplitz least squares problem
