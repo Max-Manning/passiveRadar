@@ -124,7 +124,7 @@ def LS_Filter_Toeplitz(ref, srv, nlag):
     # solve the Toeplitz least squares problem
     w = solve_toeplitz(c, r)
 
-    return s2 - np.convolve(s1, w, mode = 'same')
+    return srv - np.convolve(ref, w, mode = 'same')
 
 
 def find_channel_offset(s1, s2, nd=32, nl=100):
