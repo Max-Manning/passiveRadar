@@ -18,6 +18,9 @@ def frequency_shift(x, fc, Fs):
     nn = np.arange(x.shape[0], dtype=np.complex64)
     return x*np.exp(1j*2*np.pi*fc*nn/Fs)
 
+def xcorr(s1, s2, nlag):
+    return signal.correlate(s1, np.pad(s2, (nlag, 0), mode='constant'), mode='valid')
+
 def shift(x, n):
     '''shift x by n samples, pad with zeros'''
     if n == 0:
