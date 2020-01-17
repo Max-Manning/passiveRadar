@@ -1,5 +1,5 @@
 # input options
-inputFile: 'PassiveRadar_20191102_1011.hdf5' #HDF5 file containing data
+inputFile: 'PassiveRadar_20191105_3233.hdf5' #HDF5 file containing data
 inputReferencePath: '/data/ref'        # path to reference channel in hdf5 file
 inputSurveillancePath: '/data/srv'     # path to surveillance channel in hdf5 file
 inputType: 'ichar' # samples expressed as interleaved fp32 or char
@@ -10,8 +10,9 @@ channelBW: 200000     # bandwidth of channel (200kHz unless it's a HD radio chan
 
 
 # processing options
+nframes: 200          # number of frames to compute
 LS_filter_length: 120 # number of range cells for least squares filtering
-blockLength: 262144
+blockLength: 262144   # coherent processing interval in samples
 GPU_accel: n          # use GPU acceleration? Only if we can get this to work lol
 
 
@@ -31,10 +32,10 @@ GPU_accel: n          # use GPU acceleration? Only if we can get this to work lo
 #   bandwidth: 200000
 #
 # channelSum: 'incoherent'
+# this parameter is probably not necessary since a coherent sum is unlikely to work ever
+# will have to check though.
 
 # output options
-rangeCells: 200
+rangeCells: 300
 dopplerCells: 512
-outputFile: 'PassiveRadar_20191102_1011_XAMBG1.hdf5'
-
-
+outputFile: 'XAMBG_3233_256Hz_375km_1.hdf5'

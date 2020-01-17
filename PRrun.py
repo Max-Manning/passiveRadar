@@ -85,10 +85,9 @@ if __name__ == "__main__":
     xarg = (r2, SRV_CLEANED, 300, 512)
     XAMBG = da.map_blocks(fast_xambg, *xarg, dtype=np.complex64, chunks=(512,301,1))
 
-    XAMBG.visualize('F_049.png', edge_attr={'penwidth': '10.0'}, node_attr={'penwidth':'10.0'})
-    # f = h5py.File(PRconfig['outputFile'])
-    # d = f.require_dataset('/xambg', shape=XAMBG.shape, dtype=XAMBG.dtype)
+    f = h5py.File(PRconfig['outputFile'])
+    d = f.require_dataset('/xambg', shape=XAMBG.shape, dtype=XAMBG.dtype)
 
-    # with ProgressBar():
-    #     da.store(XAMBG, d)
-    # f.close()
+    with ProgressBar():
+        da.store(XAMBG, d)
+    f.close()
