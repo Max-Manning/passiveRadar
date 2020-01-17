@@ -1,45 +1,73 @@
 import numpy as np
 import scipy.signal as signal
 from scipy.linalg import solve_toeplitz
-from signal_utils import xcorr
+from passiveRadar.signal_utils import xcorr, shift, frequency_shift
 
-def fast_xambg(ref, srv, nlag, nfft):
+def fast_xambg(ref, srv, nlag, nf):
     ''' Fast Cross-Ambiguity Fuction
     
     Parameters:
-        s1, s2: input vectors for cross-ambiguity function
+        ref, srv: input vectors for cross-ambiguity function
         nlag: number of lag bins to compute
         nfft: number of doppler bins to compute (should be power of 2)
     Returns:
-        xc: (nfft, nlag+1, 1) matrix containing cross-ambiguity surface
+        xambg: (nf, nlag+1, 1) matrix containing cross-ambiguity surface
         third dimension added for easy stacking in dask
 
     '''
     if ref.shape != srv.shape:
         raise ValueError('Input vectors must have the same length')
-    ndecim = int(ref.shape[0]/nfft)
-    xambg = np.zeros((nfft, nlag+1, 1), dtype=np.complex64)
+
+    ndecim = int(ref.shape[0]/nf)
+    xambg = np.zeros((nf, nlag+1, 1), dtype=np.complex64)
     s2c = np.conj(srv)
 
     for k, lag in enumerate(np.arange(-nlag, 1)):
         sd = np.roll(s2c, lag)*ref
         sd = signal.resample_poly(sd, 1, ndecim)
-        xambg[:, k, 0] = np.fft.fftshift(np.fft.fft(sd, nfft))
+        xambg[:, k, 0] = np.fft.fftshift(np.fft.fft(sd, nf))
+
+    return xambg
+
+def direct_xambg(ref, srv, fs, fd, df, nlag):
+    '''Create a range-doppler map from two signals
+    
+    input parameters:
+    ref, srv:       input signals
+    fs:             input sample rate (samples/sec)
+    fd:             number of Doppler bins to compute
+    df:             doppler resolution (Hz)
+    nlag:           maximum lag between signals (samples)
+    '''
+    if ref.shape != srv.shape:
+        raise ValueError('Input vectors must have the same length')
+
+    omega_d = 2*np.pi*np.arange(-1*fd, fd-df, df)/fs
+    nf = omega_d.shape[0]
+    t = np.arange(ref.shape[0])  
+    xambg = np.zeros((nf, nlag+1, 1), dtype=np.complex64)
+    
+    for k in range(nf):
+        srv_shift = np.exp(1j*omega_d[k]*t)*srv
+        xambg[k,:, 0] = xcorr(ref, srv_shift,0,nlag)     
+        
     return xambg
 
 
-def LS_Filter(ref, srv, nlag, reg=1):
+def LS_Filter(ref, srv, nlag, reg=1, return_filter=False):
     '''Least squares clutter removal for passive radar. Computes filter taps
     using the direct matrix inversion method.  
     
     Parameters:
-    s1: reference signal
-    s2: surveillance signal
+    ref: reference signal
+    srv: surveillance signal
     nlag: filter length in samples
     reg: L2 regularization parameter for matrix inversion (default 1)
+    return_filter: (bool) option to return filter taps as well as cleaned signal
     
     Returns:
     y: surveillance signal with clutter removed
+    w: (optional) least squares filter taps
 
     '''
     if ref.shape != srv.shape:
@@ -63,11 +91,12 @@ def LS_Filter(ref, srv, nlag, reg=1):
     # direct but slightly slower implementation:
     # w = np.inv(ATA + K*reg) @ A.conj().T @ srv
 
-    return srv - A @ w
+    if return_filter:
+        return srv - A @ w, w
+    else:
+        return srv - A @ w
 
-
-
-def LS_Filter_SVD(ref, srv, nlag):
+def LS_Filter_SVD(ref, srv, nlag, return_filter = False):
     '''Least squares clutter removal for passive radar. Computes filter taps
     using the singular value decomposition. Slower than the direct matrix
     inversion, but guaranteed to be stable.
@@ -76,9 +105,11 @@ def LS_Filter_SVD(ref, srv, nlag):
     ref: reference signal
     srv: surveillance signal
     nlag: filter length in samples
+    return_filter: (bool) option to return filter taps as well as cleaned signal
     
     Returns:
     y: surveillance signal with clutter removed
+    w: (optional) least squares filter taps
 
     '''
     if ref.shape != srv.shape:
@@ -96,9 +127,12 @@ def LS_Filter_SVD(ref, srv, nlag):
     # compute the filter coefficients 
     w = V.conj().T @ np.diag(1/S) @ U.conj().T @ srv
 
-    return srv - A @ w
+    if return_filter:
+        return srv - A @ w, w
+    else:
+        return srv - A @ w
 
-def LS_Filter_Toeplitz(ref, srv, nlag):
+def LS_Filter_Toeplitz(ref, srv, nlag, return_filter=False):
     '''Least squares clutter removal for passive radar. Computes filter taps
     by assuming that the autocorrelation matrix of the reference channel signal 
     is Hermitian and Toeplitz. Faster than the direct matrix inversion method,
@@ -110,49 +144,42 @@ def LS_Filter_Toeplitz(ref, srv, nlag):
     ref: reference signal
     srv: surveillance signal
     nlag: filter length in samples
+    return_filter: (bool) option to return filter taps as well as cleaned signal
     
     Returns:
     y: surveillance signal with clutter removed
+    w: (optional) least squares filter taps
 
     '''
+    rs = np.roll(ref, -10)
+
     # compute the first column of the autocorelation matrix of ref
-    c = xcorr(ref, ref, nlag)
+    c = xcorr(rs, rs, 0, nlag)
 
     # compute the cross-correlation of ref and srv
-    r = xcorr(srv, ref, nlag)
+    r = xcorr(srv, rs, 0, nlag)
 
     # solve the Toeplitz least squares problem
     w = solve_toeplitz(c, r)
 
-    return srv - np.convolve(ref, w, mode = 'same')
+    if return_filter:
+        return srv - np.convolve(rs, w, mode = 'same'), w
+    else:
+        return srv - np.convolve(rs, w, mode = 'same')
 
+
+def offset_compensation(x1, x2, ndec, nlag):
+    s1 = x1[0:1000000]
+    s2 = x2[0:1000000]
+    os = find_channel_offset(s1, s2, ndec, nlag)
+    if(os == 0):
+        return x2
+    else:
+        return shift(x2, os)
 
 def find_channel_offset(s1, s2, nd=32, nl=100):
-    '''use cross-correlation to find offset between two channels in samples'''
-    if s1.shape != s2.shape:
-        raise ValueError('Input vectors must have the same length')
+    '''use cross-correlation to find channel offset in samples'''
     B1 = signal.decimate(s1, nd)
     B2 = np.pad(signal.decimate(s2, nd), (nl, nl), 'constant')
     xc = np.abs(signal.correlate(B1, B2, mode='valid'))
     return (np.argmax(xc) - nl)*nd
-
-def offset_compensation(x1, x2, ndec):
-    ''' correct a constant time offset between two similar signals
-    
-    Parameters:
-    x1, x2: input signals (must be the same length)
-    ndec: decimation factor for finding offset with cross-correlation
-    
-    Returns:
-    signal x2 shifted to align with x1'''
-
-    s1 = x1[0:1000000]
-    s2 = x2[0:1000000]
-    # Q: is using a million samples to find the channel offset huge overkill?
-    # A: yes, definitely. But I only need to do the offset compensation once so that's OK.
-
-    os = find_channel_offset(s1, s2, ndec, 6*ndec)
-    if(os == 0):
-        return x2
-    else:
-        return np.roll(x2, os)

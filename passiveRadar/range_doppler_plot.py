@@ -44,18 +44,22 @@ def CFAR(X, fw, gw, thresh):
 if __name__ == "__main__":
 
     f = h5py.File('xambg\\XAMBG_1011_1019M_250km_256Hz_filt120_012.hdf5', 'r')
-    xambg = normalize(abs(f['/xambg'][:,:,:]))
+    xambg = normalize(np.abs(f['/xambg'][:,:,:]))
     f.close()
+
+    print("Loaded data!!")
 
     # xambg = xambg[:,:,100:200]
 
     Nframes = xambg.shape[2]
 
     # CFAR filtering
-    CF = np.zeros_like(xambg)
+    CF = np.zeros(xambg.shape)
     for i in range(Nframes):
-        CF[:,:,i] = CFAR(xambg[:,:,i], 20, 5, 3)
+        CF[:,:,i] = CFAR(xambg[:,:,i], 20, 4, 3.5)
     
+
+    print("Okay starting with the frame rendering now!!1")
     # plot each frame
     for kk in range(Nframes):
         
@@ -63,20 +67,20 @@ if __name__ == "__main__":
         
         figure = plt.figure()
 
-        data = persistence(CF, kk, 20, 0.88)
+        data = persistence(CF, kk, 30, 0.91)
         data = np.fliplr(data.T) # get the orientation rights
 
         # crop to region of interest
-        data = data[:, 64:448]
+        # data = data[:, 64:448]
 
         vmn = np.percentile(data.flatten(), 1)
-        vmx = 1.5*np.percentile(data.flatten(),99)
-        plt.imshow(data,cmap = 'jet', vmin=vmn, vmax=vmx, extent = [-192,192,0,250])
+        vmx = 1.8*np.percentile(data.flatten(),99)
+        plt.imshow(data,cmap = 'gnuplot2', vmin=vmn, vmax=vmx, extent = [-256,256,0,250])
         plt.ylabel('Bistatic Range (km)')
         plt.xlabel('Doppler Shift (Hz)')
     #    plt.plot(np.abs(mframes[kk,:]))
         # plt.show()
         
         plt.tight_layout()
-        plt.savefig(svname, dpi=300)
+        plt.savefig(svname, dpi=100)
         plt.close()
