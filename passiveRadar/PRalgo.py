@@ -22,9 +22,13 @@ def fast_xambg(ref, srv, nlag, nf):
     xambg = np.zeros((nf, nlag+1, 1), dtype=np.complex64)
     s2c = np.conj(srv)
 
+    # precompute FIR taps for decimation
+    fc = 1. / ndecim
+    # dtaps = signal.firwin(20*ndecim + 1, fc, window=('kaiser', 5.0))
+    dtaps = signal.firwin(10*ndecim + 1, fc, window='flattop')
     for k, lag in enumerate(np.arange(-nlag, 1)):
         sd = np.roll(s2c, lag)*ref
-        sd = signal.resample_poly(sd, 1, ndecim)
+        sd = signal.resample_poly(sd, 1, ndecim, axis=0, window=dtaps)
         xambg[:, k, 0] = np.fft.fftshift(np.fft.fft(sd, nf))
 
     return xambg
