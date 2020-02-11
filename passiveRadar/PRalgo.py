@@ -23,9 +23,8 @@ def fast_xambg(ref, srv, nlag, nf):
     s2c = np.conj(srv)
 
     # precompute FIR taps for decimation
-    fc = 1. / ndecim
-    # dtaps = signal.firwin(20*ndecim + 1, fc, window=('kaiser', 5.0))
-    dtaps = signal.firwin(10*ndecim + 1, fc, window='flattop')
+    dtaps = signal.firwin(10*ndecim + 1, 1. / ndecim, window='flattop')
+
     for k, lag in enumerate(np.arange(-nlag, 1)):
         sd = np.roll(s2c, lag)*ref
         sd = signal.resample_poly(sd, 1, ndecim, axis=0, window=dtaps)
