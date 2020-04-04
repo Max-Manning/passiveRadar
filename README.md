@@ -23,13 +23,13 @@ The following GNUradio block diagram can be used to receive passive radar data f
 
 ![](./GNUradio_blockDiagram.jpg)
 
-*Recording baseband data like this results in pretty large files so unfortunately I can't post any example files in this repository. Feel free to contact me if you would like and I will find a way to send the example data to you.*
+*Recording baseband data like this results in pretty large files so unfortunately I can't post any example files in this repository. On a temporary basis you can find a 6GB example file at https://drive.google.com/open?id=18dG__H-nbuHJtG6WCHtPq3c_PRLqJA2O.*
 
 ## Input File Format
 
 The program expects the input to be two continuous streams of interleaved IQ data (the reference and observation channels). The current implementation assumes both channels are contained in a single hdf5 file, but it would be straightforward to use a different format. For large input files it is important that the data can be lazily read into memory as it is needed instead of loaded all at the same time.
 
-An easy way to convert binary data files to hdf5 is the `h5import` command-line tool which is included in [the latest hdf5 release](https://www.hdfgroup.org/downloads/hdf5/).
+An easy way to convert binary data files to hdf5 is the `h5import` command-line tool which is included in [the latest hdf5 release](https://www.hdfgroup.org/downloads/hdf5/). See `using_h5import.txt` for brief instructions.
 
 ## Algorithm Details
 
@@ -53,7 +53,7 @@ Range-doppler processing is achieved by computing the cross-ambiguity function. 
 
 ## Contributing
 
-I am actively looking for contributors to help make this project more usable. Please submit a pull request if you have any ideas about how the software can be improved.
+Please submit a pull request if you find any bugs or have ideas about how the software can be improved.
 
    
 
