@@ -43,7 +43,7 @@ def CFAR(X, fw, gw, thresh):
 
 if __name__ == "__main__":
 
-    f = h5py.File('xambg\\XAMBG_1011_1019M_250km_256Hz_filt120_012.hdf5', 'r')
+    f = h5py.File('..\\XAMBG_1011_256Hz_test2.hdf5', 'r')
     xambg = normalize(np.abs(f['/xambg'][:,:,:]))
     f.close()
 
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     # plot each frame
     for kk in range(Nframes):
         
-        svname = '.\\IMG2\\img_' + "{0:0=3d}".format(kk) + '.png'
+        svname = '..\\IMG2\\img_' + "{0:0=3d}".format(kk) + '.png'
         
         figure = plt.figure()
 

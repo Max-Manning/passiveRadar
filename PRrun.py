@@ -4,13 +4,17 @@ import h5py
 import dask.array as da
 from dask.diagnostics import ProgressBar
 from passiveRadar.signal_utils import decimate, deinterleave_IQ, frequency_shift
-from passiveRadar.PRalgo import fast_xambg, LS_Filter, offset_compensation
+from passiveRadar.PRalgo import fast_xambg_ones, fast_xambg, LS_Filter_Toeplitz, LS_Filter, offset_compensation
 
-def pad_to_chunks(darray, chunklen):
+def pad_chunks(darray, chunklen):
+    ''' make sure chunks are the right shape'''
     padlen = chunklen - np.mod(darray.shape[0], chunklen)
-    pad = da.zeros((padlen,), dtype=np.complex64)
-    padded = da.concatenate([darray, pad], axis=0)
-    return padded
+    if padlen == 0:
+        return darray
+    else:
+        pad = da.zeros((padlen,), dtype=np.complex64)
+        padded = da.concatenate([darray, pad], axis=0)
+        return padded
 
 def clutter_removal(s1, s2, nlag, Fs, dbins = [0]):
     '''clutter removal with least squares filter
@@ -20,7 +24,7 @@ def clutter_removal(s1, s2, nlag, Fs, dbins = [0]):
     s2: surveillance signal
     nlag: length of least squares filter
     Fs: input signal sample frequency
-    dbins: list of doppler bins to do filtering on (default 0)
+    dbins: list of doppler bins to do filtering on (default only the 0Hz bin)
     
     returns: y (surveillance signal with static echoes removed)'''
     y = s2
@@ -39,6 +43,7 @@ def channel_preprocessing(sig, dec, fc, Fs):
     IQd = decimate(IQ_tuned, dec)
     return IQd
 
+
 if __name__ == "__main__":
 
     # GET CONFIG PARAMETERS
@@ -51,15 +56,15 @@ if __name__ == "__main__":
     
     # LOADING DATA
     h5file = h5py.File(PRconfig['inputFile'], 'r')
-    ref_dat = da.from_array(h5file[PRconfig['inputReferencePath']][0:50*chunk_length],  chunks = (chunk_length,))
-    srv_dat = da.from_array(h5file[PRconfig['inputSurveillancePath']][0:50*chunk_length], chunks = (chunk_length,))
+    ref_dat = da.from_array(h5file[PRconfig['inputReferencePath']][90:92*chunk_length],  chunks = (chunk_length,))
+    srv_dat = da.from_array(h5file[PRconfig['inputSurveillancePath']][90:92*chunk_length], chunks = (chunk_length,))
     
     # PADDING TO INTEGER NUMBER OF CHUNK LENGTHS
 
-    # ref_dat = pad_to_chunks(ref_data, chunk_length)
-    # ref_dat = ref_dat.rechunk((chunk_length,))
-    # srv_dat = pad_to_chunks(srv_data, chunk_length)
-    # srv_dat = srv_dat.rechunk((chunk_length,))
+    ref_dat = pad_chunks(ref_dat, chunk_length)
+    ref_dat = ref_dat.rechunk((chunk_length,))
+    srv_dat = pad_chunks(srv_dat, chunk_length)
+    srv_dat = srv_dat.rechunk((chunk_length,))
 
 
     # DEINTERLEAVING DATA, TUNING TO CHANNEL AND DECIMATING
@@ -77,13 +82,13 @@ if __name__ == "__main__":
 
     # APPLY LS FILTER
 
-    arg1 = (r2, s2o2, 100, Fs0//10, [0,1,-1,2,-2])
+    arg1 = (r2, s2o2, 100, Fs0//10, [0,1,-1, 2, -2])
     SRV_CLEANED = da.map_blocks(clutter_removal, *arg1, dtype=np.complex64, chunks = (chunk_length//20,))
 
     # # COMPUTE CROSS-AMBIGUITY FUNCTION
 
     xarg = (r2, SRV_CLEANED, 300, 512)
-    XAMBG = da.map_blocks(fast_xambg, *xarg, dtype=np.complex64, chunks=(512,301,1))
+    XAMBG = da.map_blocks(fast_xambg_ones, *xarg, dtype=np.complex64, chunks=(512,301,1))
 
     f = h5py.File(PRconfig['outputFile'])
     d = f.require_dataset('/xambg', shape=XAMBG.shape, dtype=XAMBG.dtype)

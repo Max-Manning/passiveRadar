@@ -1,5 +1,9 @@
 A passive radar locates targets by detecting the echoes of broadcast signals that bounce off of them. This repository contains signal processing scripts for a FM radio based passive radar. Check out [this page](https://dopplerfish.com/passive-radar/) for more information about how passive radar works.
 
+## Requirements
+
+The code is written in Python using Numpy, Scipy, h5py, dask, and matplotlib. I recommend using a 64-bit python distribution  to avoid memory limitations. 
+
 ## File Contents
 
 `PRconfig.yaml`: Configuration file for defining passive radar parameters. (Note that not all parameters defined in `PRconfig.yaml` are currently used, but will be added in a later version.)
@@ -41,15 +45,23 @@ Three least squares filter implementations are provided in `passiveRadar\PRalgo.
 
 2. `LS_Filter_SVD` : least squares filter implementation based on the singular value decomposition. Slower than the direct matrix inversion method but guaranteed stability.
 
-3. `LS_Filter_Toeplitz` : least squares filter implementation which makes strong assumptions about the statistical stationarity of the input signals.  Much faster than the previous two implementations but can be inaccurate if the assumptions are violated (in my experience this rarely happens.  
+3. `LS_Filter_Toeplitz` : least squares filter implementation which makes strong assumptions about the statistical stationarity of the input signals.  Much faster than the previous two implementations but can be inaccurate if the assumptions are violated (in my experience this rarely happens).  
 
 ### Range-Doppler Processing
 
 Range-doppler processing is achieved by computing the cross-ambiguity function. Two cross-ambiguity function  implementations are provided in `passiveRadar\PRalgo.py`:
 
-1. `direct_xambg`: Computes the cross-ambiguity function directly.
+1. `fast_xambg`: Fast cross-ambiguity algorithm which computes the following steps for each range value:
 
-2. `fast_xambg`: Fast cross-ambiguity algorithm that uses decimation followed by a FFT. About twice as fast as the direct implementation. 
+   1. Take the product of the reference channel with the time-shifted surveillance channel
+
+   2. Apply a FIR decimation filter and decimate to the desired range of doppler values (eg. , decimating to 512 Sa/s gives a Doppler range of -256 Hz to 256Hz)
+
+   3. Take the FFT.
+
+   The decimation filter used in step 2 is a flat-top FIR filter of length 10*(decimation factor)+1.  
+
+2. `fast_xambg_ones`: Fast cross-ambiguity function identical to `fast_xambg` but which uses an all-ones filter prior to decimation and FFT. Runs faster than `fast_xambg` but causes sinc-shaped drooping of the ambiguity surface at high doppler values (not usually a problem). 
 
 ## Contributing
 
