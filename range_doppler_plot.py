@@ -3,19 +3,22 @@ import scipy.signal as signal
 from matplotlib import pyplot as plt
 import h5py
 
-from signal_utils import normalize
+from passiveRadar.signal_utils import normalize
 
 def persistence(X, k, hold, decay):
     '''Add persistence (digital phosphor) effect to sequence of frames
     
     Parameters: 
+
     X: Input frame stack (NxMxL matrix)
     k: index of frame to acquire
     hold: number of samples to persist
     decay: frame decay rate (should be less than 1)
     
     Returns:
+
     frame: (NxM matrix) frame k of the original stack with persistence added'''
+    
     frame = np.zeros((X.shape[0], X.shape[1]))
 
     nf = min(k+1, hold)
@@ -24,7 +27,7 @@ def persistence(X, k, hold, decay):
             frame = frame + X[:,:,k-i]*decay**i
     return frame
 
-def CFAR_2D(X, fw, gw, thresh):
+def CFAR_2D(X, fw, gw, thresh = None):
     '''constant false alarm rate target detection
     
     Parameters:
@@ -41,7 +44,10 @@ def CFAR_2D(X, fw, gw, thresh):
     Tfilt[e1:e2, e1:e2] = 0
 
     CR = normalize(X) / (signal.convolve2d(X, Tfilt, mode='same', boundary='wrap') + 1e-10)
-    return CR > thresh
+    if thresh is None:
+        return CR
+    else:
+        return CR > thresh
 
 def CFAR_sequential(X, rx, ry, gx, gy, thresh = None, order='xy'):
     
@@ -83,7 +89,7 @@ def CFAR_sequential(X, rx, ry, gx, gy, thresh = None, order='xy'):
 
 if __name__ == "__main__":
 
-    f = h5py.File('..\\XAMBG_1011_256Hz_test2.hdf5', 'r')
+    f = h5py.File('..\\XAMBG_1011_256Hz.hdf5', 'r')
     xambg = np.abs(f['/xambg'])
     f.close()
 
@@ -96,10 +102,10 @@ if __name__ == "__main__":
     for i in range(Nframes):
 
         # CFAR filtering using a 2D kernel
-        # CF[:,:,i] = CFAR_2D(xambg[:,:,i], 20, 5, 3.0)
+        CF[:,:,i] = CFAR_2D(xambg[:,:,i], 20, 3, None)
 
         # CFAR filtering along range and doppler separately (range first)
-        CF[:,:,i] = CFAR_sequential(xambg[:,:,i], 30, 30, 4, 6, None, 'yx')
+        # CF[:,:,i] = CFAR_sequential(xambg[:,:,i], 12, 12, 2, 2, None, 'yx')
 
     # plot each frame
     for kk in range(Nframes):
