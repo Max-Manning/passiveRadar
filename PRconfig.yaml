@@ -1,41 +1,22 @@
 # input options
-inputFile: 'PassiveRadar_20191105_3233.hdf5' #HDF5 file containing data
+inputFile: 'PassiveRadar_20191102_1011.hdf5' #HDF5 file containing data
 inputReferencePath: '/data/ref'        # path to reference channel in hdf5 file
 inputSurveillancePath: '/data/srv'     # path to surveillance channel in hdf5 file
-inputType: 'ichar' # samples expressed as interleaved fp32 or char
+# inputType: 'ichar' # samples expressed as interleaved fp32 or char
+
 inputSampleRate: 2400000
 inputCenterFreq: 102000000
-channelFreq: 101900000
-channelBW: 200000     # bandwidth of channel (200kHz unless it's a HD radio channel)
-
+channelFreq: 101300000
+channelBandwidth: 240000
+# make sure the sample rate is evenly divisible by the channel bandwidth
 
 # processing options
-nframes: 200          # number of frames to compute
-LS_filter_length: 120 # number of range cells for least squares filtering
-blockLength: 262144   # coherent processing interval in samples
-GPU_accel: n          # use GPU acceleration? Only if we can get this to work lol
-
-
-# TODO: implement multi-channel functionality like this
-# # input channels
-# Channels:
-# - channelnum: 1
-#   channelFreq: 101300000
-#   bandwidth: 200000
-
-# - channelnum: 2
-#   channelFreq: 101900000
-#   bandwidth: 200000
-
-# - channelnum: 3
-#   channelFreq: 102700000
-#   bandwidth: 200000
-#
-# channelSum: 'incoherent'
-# this parameter is probably not necessary since a coherent sum is unlikely to work ever
-# will have to check though.
+nFrames: 500        # number of frames to compute
+LSFilterLength: 96  # number of range cells for least squares filtering
+blockLength: 262144 # coherent processing interval in samples (assuming the 
+                    # sample rate is equal to the channel Bandwidth)
 
 # output options
 rangeCells: 300
 dopplerCells: 512
-outputFile: 'XAMBG_3233_256Hz_375km_1.hdf5'
+outputFile: 'XAMBG_1011.hdf5' # output file

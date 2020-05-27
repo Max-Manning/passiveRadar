@@ -1,130 +1,80 @@
 import numpy as np
 import scipy.signal as signal
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
+import yaml
 import h5py
+import errno
+import os
 
 from passiveRadar.signal_utils import normalize
-
-def persistence(X, k, hold, decay):
-    '''Add persistence (digital phosphor) effect to sequence of frames
-    
-    Parameters: 
-
-    X: Input frame stack (NxMxL matrix)
-    k: index of frame to acquire
-    hold: number of samples to persist
-    decay: frame decay rate (should be less than 1)
-    
-    Returns:
-
-    frame: (NxM matrix) frame k of the original stack with persistence added'''
-    
-    frame = np.zeros((X.shape[0], X.shape[1]))
-
-    nf = min(k+1, hold)
-    for i in range(nf):
-        if k-i >= 0:
-            frame = frame + X[:,:,k-i]*decay**i
-    return frame
-
-def CFAR_2D(X, fw, gw, thresh = None):
-    '''constant false alarm rate target detection
-    
-    Parameters:
-    fw: CFAR kernel width 
-    gw: number of guard cells
-    thresh: detection threshold
-    
-    Returns:
-    X with CFAR filter applied'''
-
-    Tfilt = np.ones((fw,fw))/(fw**2 - gw**2)
-    e1 = (fw - gw)//2
-    e2 = fw - e1 + 1
-    Tfilt[e1:e2, e1:e2] = 0
-
-    CR = normalize(X) / (signal.convolve2d(X, Tfilt, mode='same', boundary='wrap') + 1e-10)
-    if thresh is None:
-        return CR
-    else:
-        return CR > thresh
-
-def CFAR_sequential(X, rx, ry, gx, gy, thresh = None, order='xy'):
-    
-    filtx = np.ones((rx,))/(rx - gx)
-    ex1 = (rx-gx)//2
-    ex2 = rx - ex1 + 1
-    filtx[ex1:ex2] = 0
-
-    filty = np.ones((ry,))/(ry - gy)
-    ey1 = (ry-gy)//2
-    ey2 = ry - ey1 + 1
-    filtx[ey1:ey2] = 0
-
-    if order == 'xy':
-
-        C1 = np.zeros(X.shape)
-        for i in range(X.shape[1]):
-            C1[:,i] = X[:,i] / np.convolve(X[:,i], filtx, mode='same')
-
-        C2 = np.zeros(X.shape)
-        for i in range(X.shape[0]):
-            C2[i,:] = C1[i,:] / np.convolve(C1[i,:], filty, mode='same')
-
-    else:
-
-        C1 = np.zeros(X.shape)
-        for i in range(X.shape[0]):
-            C1[i,:] = X[i,:] / np.convolve(X[i,:], filty, mode='same')
-
-        C2 = np.zeros(X.shape)
-        for i in range(X.shape[1]):
-            C2[:,i] = C1[:,i] / np.convolve(C1[:,i], filtx, mode='same')
-    
-    if thresh is None:
-        return C2
-    else:
-        return C2 > thresh
-
+from passiveRadar.target_detection import CFAR_2D
+from passiveRadar.plotting_tools import persistence
 
 if __name__ == "__main__":
 
-    f = h5py.File('..\\XAMBG_1011_256Hz.hdf5', 'r')
+    ## plot a sequence of passive radar range-doppler maps
+
+
+    # get config parameters from file
+    config_file = open('PRconfig.yaml', 'r')
+    config_params = yaml.safe_load(config_file)
+    config_file.close()
+
+
+    xambgfile           = config_params['outputFile']
+    blockLength         = config_params['blockLength']
+    channelBandwidth    = config_params['channelBandwidth']
+    rangeCells          = config_params['rangeCells']
+    dopplerCells        = config_params['dopplerCells']
+
+    # length of the coherent processing interval in seconds
+    cpi_seconds = blockLength/channelBandwidth
+    # range extent in km
+    range_extent = rangeCells*3e8/(channelBandwidth*1000)
+    # doppler extent in Hz
+    doppler_extent = dopplerCells/(2 * cpi_seconds)
+
+    # get the processed passive radar data (range-doppler maps)
+    if not os.path.isfile(xambgfile):
+        raise FileNotFoundError(
+            errno.ENOENT, os.strerror(errno.ENOENT), xambgfile)
+    f = h5py.File(xambgfile, 'r')
     xambg = np.abs(f['/xambg'])
+    Nframes = xambg.shape[2]
     f.close()
 
-    print("Loaded data!!")
-
-    Nframes = xambg.shape[2]
-
-    # CFAR filtering
+    # CFAR filter each frame using a 2D kernel
     CF = np.zeros(xambg.shape)
     for i in range(Nframes):
+        CF[:,:,i] = CFAR_2D(xambg[:,:,i], 18, 4)
 
-        # CFAR filtering using a 2D kernel
-        CF[:,:,i] = CFAR_2D(xambg[:,:,i], 20, 3, None)
-
-        # CFAR filtering along range and doppler separately (range first)
-        # CF[:,:,i] = CFAR_sequential(xambg[:,:,i], 12, 12, 2, 2, None, 'yx')
+    # make sure the save directory exists
+    savedir = os.path.join(os.getcwd(),  "IMG")
+    if not os.path.isdir(savedir):
+        os.makedirs(savedir)
 
     # plot each frame
     for kk in range(Nframes):
 
-        data = persistence(CF, kk, 30, 0.91)
+        data = persistence(CF, kk, 20, 0.90)
         data = np.fliplr(data.T) # get the orientation right
+
+        svname = os.path.join(savedir, 'img_' + "{0:0=3d}".format(kk) + '.png')
         
-        svname = '..\\IMG2\\img_' + "{0:0=3d}".format(kk) + '.png'
-        figure = plt.figure()
+        # svname = '.\\IMG4\\img_' + "{0:0=3d}".format(kk) + '.png'
+        figure = plt.figure(figsize = (8, 4.5))
 
         # get max and min values for color map
         vmn = np.percentile(data.flatten(), 1)
         vmx = 1.8*np.percentile(data.flatten(),99)
 
-        # plot
-        plt.imshow(data,cmap = 'gnuplot2', vmin=vmn, vmax=vmx, extent = [-256,256,0,250])
+        plt.imshow(data,cmap = 'gnuplot2', vmin=vmn, vmax=vmx, 
+            extent = [-1*doppler_extent,doppler_extent,0,range_extent], 
+            aspect='auto')
+
         plt.ylabel('Bistatic Range (km)')
         plt.xlabel('Doppler Shift (Hz)')
         
         plt.tight_layout()
-        plt.savefig(svname, dpi=100)
+        plt.savefig(svname, dpi=200)
         plt.close()
