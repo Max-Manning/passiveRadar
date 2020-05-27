@@ -55,7 +55,7 @@ Range-doppler processing is achieved by computing the cross-ambiguity function. 
 
    3. Take the FFT.
 
-   The decimation filter used in step 2 is a flat-top FIR filter of length 10*(decimation factor)+1.  
+   The decimation filter used in step 2 is either a flat-top FIR filter of length `10*decimation factor+1 ` (slower but more accurate) or an all-ones filter of length `1*decimation factor` (faster but less accurate).  
 
 2. `direct_xambg`: Time domain implementation of the cross-ambiguity function. 2-3x slower than `fast_xambg` but gives exact results.
 
