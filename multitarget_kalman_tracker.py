@@ -25,18 +25,27 @@ target_track_dtype = np.dtype([
     # This is used to determine when a track has lost its target
     ('kalman_state', kalman_filter_dtype)]) # the state of the Kalman filter
 
-def initialize_track(measurement, status):
+def initialize_track(measurement):
     '''Create a new target track with default parameter values
 
     Parameters:
         measurement:            first measurement for this target track
-        status:                 initial status for this track (0, 1 or 2)
+            if measurement is None, the track is initialized in the 'free' state
+            (status = 0) at an arbitrary set of coordinates
+            if measurement is a set of coordinates, the track is initialized at 
+            these coordinates the 'preliminary' state (status = 1)
     Returns:    
-        initialTrackerState:    target_tracker_dtype containing the initialized
+        initialTrackerState:    target_track_dtype containing the initialized
                                 target track
     '''
-    r = measurement[0]
-    f = measurement[1]
+    if measurement is None:
+        r = 0
+        f = 0
+        status=0
+    else:
+        r = measurement[0]
+        f = measurement[1]
+        status = 1
 
     # create initial Kalman filter parameters
     x = np.array([r, 0, f, -1])
@@ -57,17 +66,19 @@ def initialize_track(measurement, status):
     targetHistory[5:10] = 1
     kalmanState         = (x, P, F1, F2, Q, H, R, S)
     
-    initialTrackerState = np.array([(status, lifetime, estimate, measurement, 
+    initialTrackState = np.array([(status, lifetime, estimate, measurement, 
         targetHistory, kalmanState)], dtype=target_track_dtype)
 
-    return initialTrackerState
+    return initialTrackState
 
 def track_update(currentState, newMeasurement):
+
+
     ''' Update a single target track with a new measurement.
     
     Parameters:
-        currentState:   target_tracker_dtype containting the current state
-                        of the target track
+        currentState:   target_track_dtype containting the current state of the 
+                        target track
         newMeasurement: measurement vector for this timestep
     Returns:
         newState:       target_track_dtype containing the updated track state
@@ -119,14 +130,133 @@ def track_update(currentState, newMeasurement):
 
     return newState
 
+def associate_measurements(trackState, candidateMeas):
+
+    '''Associate a set of candidate measurements with a target track
+    
+    Parameters:
+        trackState:
+        candidateMeas:
+    Returns:
+        newMeasurement:
+        candidateMeas:
+    
+    '''
+    
+    track_status = trackState['status']
+
+    # get the last measurement and state estimate for this track
+    lastRangeMeas    = trackState['measurement'][0]
+    lastDopplerMeas  = trackState['measurement'][1]
+    lastDopplerEst  = trackState['estimate'][1]
+    lastRangeEst    = trackState['estimate'][0]
+
+    candidateRange      = candidateMeas[0, :]
+    candidateDoppler    = candidateMeas[1, :]
+    candidateStrength   = candidateMeas[2, :]
+
+    ########### FIRST VALIDATION STEP #########################################
+
+    if track_status == 0:
+        # if the track state is free we're not picky, we consider any measurement
+        earlyGate = np.ones(candidateRange.shape).astype(bool)
+
+    elif track_status == 1:
+        # if the track state is preliminary we look within 5km and 12Hz of the 
+        # last confirmed measurement
+        rangeGate   = (np.abs(candidateRange   - lastRangeMeas)   < 5)
+        dopplerGate = (np.abs(candidateDoppler - lastDopplerMeas) < 12)
+        earlyGate =  rangeGate.astype(bool) & dopplerGate.astype(bool)
+
+    else:
+        # if the track state is confirmed we look within 4km and 10Hz of the 
+        # last state estimate
+        rangeGate = (np.abs(candidateRange - lastRangeEst) < 4)
+        dopplerGate = (np.abs(candidateDoppler - lastDopplerEst) < 10)
+        earlyGate =  rangeGate.astype(bool) & dopplerGate.astype(bool)
+    
+    rangeMeas       = candidateRange[earlyGate]
+    dopplerMeas     = candidateDoppler[earlyGate]
+    strengthMeas    = candidateStrength[earlyGate]
+
+    # SECOND VALIDATION STEP (ONLY FOR CONFIRMED TRACKS)########################
+
+    if track_status == 2: # confirmed tracks
+        # apply a stricter validation gate based on the innovation
+        # covariance matrix of the kalman filter for this track
+        NCloseCandidates = np.sum(earlyGate)
+        validationGate = np.zeros((NCloseCandidates,)).astype(bool)
+        S = trackState['kalman_state']['S']
+        for kk in range(NCloseCandidates):
+            rangeDiff = lastRangeMeas - rangeMeas[kk]
+            dopplerDiff = lastDopplerMeas - dopplerMeas[kk]
+            zerr = np.array([rangeDiff, dopplerDiff])
+            validationGate[kk] = zerr.T @ np.linalg.inv(S) @ zerr < 12
+            
+        # Get the measurements that fit the final validation criteria for 
+        # this track
+        rangeMeas       = rangeMeas[validationGate]
+        dopplerMeas     = dopplerMeas[validationGate]
+        strengthMeas    = strengthMeas[validationGate]
+
+    ############################################################################
+    
+    # how many measurements did we get?
+    measurementsFound = rangeMeas.size
+
+    if measurementsFound == 0:
+        # if there are no suitable measurements for this track we return None
+        # and leave the list of candidate measurements unchanged
+        return None, candidateMeas
+
+    elif measurementsFound > 1:
+        # if there are multiple measurements that match with this target we need
+        # to pick which one to use
+        if track_status == 0:
+            # take the strongest measurement if the target is unconfirmed
+            rangeMeas       = candidateRange[0]
+            dopplerMeas     = candidateDoppler[0]
+            strengthMeas    = candidateStrength[0] 
+            newMeasurement = np.squeeze(np.array([rangeMeas, dopplerMeas]))   
+        
+            rangeGate   = (np.abs(candidateRange - rangeMeas) < 10).astype(bool)
+            dopplerGate = (np.abs(candidateDoppler - dopplerMeas) < 12).astype(bool)
+            earlyGate   =  rangeGate & dopplerGate
+        elif track_status==1:
+            # if there are multiple candidate measurements pick the nearest one
+            # (Nearest Neighbour Standard Filter). I should definitely screw
+            # around with various other methods here eg PDAF
+            ixm = np.argmin(np.sqrt(rangeMeas**2 + dopplerMeas**2))
+            rangeMeas       = rangeMeas[ixm]
+            dopplerMeas     = dopplerMeas[ixm]
+            strengthMeas    = strengthMeas[ixm]
+        if track_status == 2:
+            # # if there are multiple candidate measurements pick the strongest one
+            # # (Strongest Neighbour Standard Filter). 
+            rangeMeas       = rangeMeas[0]
+            dopplerMeas     = dopplerMeas[0]
+            strengthMeas    = strengthMeas[0]
+            newMeasurement = np.squeeze(np.array([rangeMeas, dopplerMeas]))
+
+    candidateRange      = candidateRange[~earlyGate]
+    candidateDoppler    = candidateDoppler[~earlyGate]
+    candidateStrength   = candidateStrength[~earlyGate]
+
+    newMeasurement = np.squeeze(np.array([rangeMeas, dopplerMeas])) 
+    candidateMeas = np.stack((candidateRange, candidateDoppler, candidateStrength))
+
+    return newMeasurement, candidateMeas
+
 def multitarget_tracker(data, frame_extent, N_TRACKS):
 
     ''' Radar target tracker for multiple targets. 
     
     Parameters:
         data:           3D array containting a stack of range-doppler map frames
+
         frame_extent:   Defines the edges lengths for  the input frame allowing
                         pixel indices to be converted to measurement values.
+
         N_TRACKS:       Number of tracks. Corresponds to the maximum number of
                         targets that can be tracked simultaneously
     Returns:
@@ -141,9 +271,8 @@ def multitarget_tracker(data, frame_extent, N_TRACKS):
     # initialize a vector of tatget tracks
     trackStates  = np.empty((N_TRACKS,), dtype=target_track_dtype)
     for i in range(trackStates.shape[0]):
-        # start each track in a random position in the unlocked state
-        trackStates[i] =  initialize_track([np.random.uniform(0,100),
-                                np.random.uniform(-200,200)], 0)
+        # start each track in the unlocked state
+        trackStates[i] =  initialize_track(None)
 
     # make a storage array for the results at each timestep
     tracker_history = np.empty((Nframes, N_TRACKS), 
@@ -154,8 +283,7 @@ def multitarget_tracker(data, frame_extent, N_TRACKS):
 
         # get the new candidate measurements for this frame
         dataFrame = data[:,:,i]
-        candidateRange, candidateDoppler, candidateStrength = get_measurements(
-            dataFrame, 99.8, [256/1.092, 375]) # [256/1.092, 375]
+        candidateMeas = get_measurements(dataFrame, 99.8, frame_extent)
 
         # find out which of the tracks are in the confirmed, preliminary and 
         # free states
@@ -163,198 +291,34 @@ def multitarget_tracker(data, frame_extent, N_TRACKS):
         prelimTracks    = np.argwhere(trackStates['status'] == 1).flatten()
         freeTracks      = np.argwhere(trackStates['status'] == 0).flatten()
 
-        # loop over the confirmed tracks first (confirmed tracks get first
-        # access to the candidate measurements.)
         for track_idx in confirmedTracks:
-            
-            # get the last measurement and state estimate for this track
+            # loop over the confirmed tracks first (confirmed tracks get first
+            # access to the candidate measurements.)
             trackState = trackStates[track_idx]
-            lastRangePos    = trackState['measurement'][0]
-            lastDopplerPos  = trackState['measurement'][1]
-            lastDopplerEst  = trackState['estimate'][1]
-            lastRangeEst    = trackState['estimate'][0]
-
-            # pick out the candidate measurements that are reasonably close
-            # to the last state estimate for this track
-            rangeGate = (np.abs(candidateRange - lastRangeEst) < 4)
-            dopplerGate = (np.abs(candidateDoppler - lastDopplerEst) < 10)
-            earlyGate =  rangeGate.astype(bool) & dopplerGate.astype(bool)
-            rangeMeas       = candidateRange[earlyGate]
-            dopplerMeas     = candidateDoppler[earlyGate]
-            strengthMeas    = candidateStrength[earlyGate]
-
-            # apply a stricter validation gate based on the innovation
-            # covariance matrix of the kalman filter for this track
-            NCloseCandidates = np.sum(earlyGate)
-            validationGate = np.zeros((NCloseCandidates,)).astype(bool)
-            S = trackState['kalman_state']['S']
-            for kk in range(NCloseCandidates):
-                rangeDiff = lastRangePos - rangeMeas[kk]
-                dopplerDiff = lastDopplerPos - dopplerMeas[kk]
-                zerr = np.array([rangeDiff, dopplerDiff])
-                validationGate[kk] = zerr.T @ np.linalg.inv(S) @ zerr < 12
-                
-            # Get the measurements that fit the final validation criteria for 
-            # this track
-            rangeMeas       = rangeMeas[validationGate]
-            dopplerMeas     = dopplerMeas[validationGate]
-            strengthMeas    = strengthMeas[validationGate]
-
-            # How many targets did we get??
-            targetsFound = np.sum(validationGate)
-
-            if targetsFound > 1:
-                # if there are multiple candidate measurements pick the nearest one
-                # (Nearest Neighbour Standard Filter). 
-                # ixm = np.argmin(np.sqrt(rangeMeas**2 + dopplerMeas**2))
-                # rangeMeas       = rangeMeas[ixm]
-                # dopplerMeas     = dopplerMeas[ixm]
-                # strengthMeas    = strengthMeas[ixm]
-                # newMeasurement = np.squeeze(np.array([rangeMeas, dopplerMeas]))
-
-                # # if there are multiple candidate measurements pick the strongest one
-                # # (Strongest Neighbour Standard Filter). 
-                rangeMeas       = rangeMeas[0]
-                dopplerMeas     = dopplerMeas[0]
-                strengthMeas    = strengthMeas[0]
-                newMeasurement = np.squeeze(np.array([rangeMeas, dopplerMeas]))
-
-                # remove the measurements close to this target from the list of 
-                # candidate measurements
-                candidateRange      = candidateRange[~earlyGate]
-                candidateDoppler    = candidateDoppler[~earlyGate]
-                candidateStrength   = candidateStrength[~earlyGate]
-            
-            elif targetsFound == 1:
-                # if there is just one measurement use that one obviously
-                rangeMeas       = rangeMeas
-                dopplerMeas     = dopplerMeas
-                strengthMeas    = strengthMeas
-                newMeasurement = np.squeeze(np.array([rangeMeas, dopplerMeas]))
-
-                # remove the measurements close to this target from the list of 
-                # candidate measurements
-                candidateRange      = candidateRange[~earlyGate]
-                candidateDoppler    = candidateDoppler[~earlyGate]
-                candidateStrength   = candidateStrength[~earlyGate]
-
-            else:
-                # no measurements found for this track
-                newMeasurement = None
-
+            newMeasurement, candidateMeas = associate_measurements(trackState, candidateMeas)
             newTrackState = track_update(trackState, newMeasurement)
             trackStates[track_idx] = newTrackState
 
-        # Next we update the tracks that are in the preliminary state
         for track_idx in prelimTracks:
-
+            # Next we update the tracks that are in the preliminary state
             trackState = trackStates[track_idx]
-            lastRangePos    = trackState['measurement'][0]
-            lastDopplerPos  = trackState['measurement'][1]
-
-
-            rangeGate = (np.abs(candidateRange - lastRangePos) < 5).astype(bool)
-            dopplerGate = (np.abs(candidateDoppler - lastDopplerPos) < 12).astype(bool)
-            earlyGate =  rangeGate & dopplerGate
-
-            rangeMeas       = candidateRange[earlyGate]
-            dopplerMeas     = candidateDoppler[earlyGate]
-            strengthMeas    = candidateStrength[earlyGate]
-            # if track_idx == 0:
-            #     print("UPDATING PRELIMINARY TRACK WITH INDEX: {index}".format(index = track_idx))
-            #     print("# of targets found: {num}".format(num = rangeMeas.size))
-
-            targetsFound = np.sum(earlyGate)
-
-            if targetsFound > 1:
-                
-                # if there are multiple candidate measurements pick the nearest one
-                # (Nearest Neighbour Standard Filter). I should definitely screw
-                # around with various other methods here eg PDAF
-                ixm = np.argmin(np.sqrt(rangeMeas**2 + dopplerMeas**2))
-                rangeMeas       = rangeMeas[ixm]
-                dopplerMeas     = dopplerMeas[ixm]
-                strengthMeas    = strengthMeas[ixm]
-                newMeasurement = np.squeeze(np.array([rangeMeas, dopplerMeas]))
-
-                # # if there are multiple candidate measurements pick the strongest one
-                # # (Strongest Neighbour Standard Filter). I should definitely screw
-                # # around with various other methods here eg PDAF
-                # rangeMeas       = rangeMeas[0]
-                # dopplerMeas     = dopplerMeas[0]
-                # strengthMeas    = strengthMeas[0]
-                # newMeasurement = np.squeeze(np.array([rangeMeas, dopplerMeas]))
-
-                # remove the measurements we used from the list of 
-                # candidate measurements
-                candidateRange      = candidateRange[~earlyGate]
-                candidateDoppler    = candidateDoppler[~earlyGate]
-                candidateStrength   = candidateStrength[~earlyGate]
-            
-            elif targetsFound == 1:
-                # if there is just one measurement use that one obviously
-                rangeMeas       = rangeMeas
-                dopplerMeas     = dopplerMeas
-                strengthMeas    = strengthMeas
-                newMeasurement = np.squeeze(np.array([rangeMeas, dopplerMeas]))
-
-                # remove the measurement we used from the list of 
-                # candidate measurements
-                candidateRange      = candidateRange[~earlyGate]
-                candidateDoppler    = candidateDoppler[~earlyGate]
-                candidateStrength   = candidateStrength[~earlyGate]
-
-            else:
-                # no measurements found for this track
-                newMeasurement = None
-
+            newMeasurement, candidateMeas = associate_measurements(trackState, candidateMeas)
             newTrackState = track_update(trackState, newMeasurement)
             trackStates[track_idx] = newTrackState
 
-        #####################################################################
-        ##### LOOP OVER FREE TRACKS #########################################
         for track_idx in freeTracks:
-
+            # Finally we assign free tracks to remaining measurements
             trackState = trackStates[track_idx]
-
-            # if track_idx == 0:
-            #     print("STARTING NEW TRACK WITH INDEX: {index}".format(index = track_idx))
-
-            if candidateRange.size == 0:
+            if candidateMeas.size == 0:
                 print("no more measurements available, track remaining free")
                 break
-
-
-            # take the next measurement in line (the strongest one, since we
-            # sorted them)
-            if candidateRange.size == 1:
-                rangeMeas       = candidateRange
-                dopplerMeas     = candidateDoppler
-                strengthMeas    = candidateStrength
-            else:
-                # take the strongest measurement
-                rangeMeas       = candidateRange[0]
-                dopplerMeas     = candidateDoppler[0]
-                strengthMeas    = candidateStrength[0]    
-            
-                rangeGate   = (np.abs(candidateRange - rangeMeas) < 10).astype(bool)
-                dopplerGate = (np.abs(candidateDoppler - dopplerMeas) < 12).astype(bool)
-                earlyGate   =  rangeGate & dopplerGate
-
-                # remove the candidate measurements close to this one
-                candidateRange    = candidateRange[~earlyGate]
-                candidateDoppler  = candidateDoppler[~earlyGate]
-                candidateStrength = candidateStrength[~earlyGate]
-            # if track_idx == 0:
-            #     print("New track created with position {range}, {doppler}".format(range=rangeMeas, doppler=dopplerMeas))
-            newMeasurement = np.squeeze(np.array([rangeMeas, dopplerMeas]))
-            newTrackState = initialize_track(newMeasurement, 1)
+            newMeasurement, candidateMeas = associate_measurements(trackState, candidateMeas)
+            newTrackState = initialize_track(newMeasurement)
             trackStates[track_idx] = newTrackState
     
         tracker_history[i,:] = trackStates
+
     return tracker_history
-
-
 
 def get_measurements(dataFrame, p, frame_extent):
     ''' extract a list of candidate measurements from a range-doppler map frame
@@ -418,9 +382,9 @@ def get_measurements(dataFrame, p, frame_extent):
     candidateDoppler    = candidateDoppler[sort_idx]
     candidateStrength   = candidateStrength[sort_idx]
 
-    return candidateRange, candidateDoppler, candidateStrength
+    candidateMeas = np.stack((candidateRange, candidateDoppler, candidateStrength))
 
-
+    return candidateMeas
 
 if __name__ == "__main__":
 
@@ -458,8 +422,6 @@ if __name__ == "__main__":
     N_TRACKS = 20
 
     tracker_history = multitarget_tracker(CF, [256/1.092, 375], N_TRACKS)
-
-
 
     tracker_status = tracker_history['status']
     tracker_status_confirmed_idx = np.nonzero(tracker_status != 2)
