@@ -4,10 +4,12 @@ inputReferencePath: '/data/ref'        # path to reference channel in hdf5 file
 inputSurveillancePath: '/data/srv'     # path to surveillance channel in hdf5 file
 # inputType: 'ichar' # samples expressed as interleaved fp32 or char
 
-inputSampleRate: 2400000
-inputCenterFreq: 102000000
-channelFreq: 101300000
-channelBandwidth: 240000
+inputSampleFreq: 2400000      # input sample rate in Hz
+inputCenterFreq: 102000000    # input center frequency in Hz (i.e. the 
+                              # frequency your radio is tuned to)
+channelFreq: 101900000        # center frequency of the FM radio channel in Hz
+channelBandwidth: 240000      # channel bandwidth in Hz
+                      
 # make sure the sample rate is evenly divisible by the channel bandwidth
 
 # processing options
@@ -15,8 +17,7 @@ nFrames: 500        # number of frames to compute
 LSFilterLength: 96  # number of range cells for least squares filtering
 blockLength: 262144 # coherent processing interval in samples (assuming the 
                     # sample rate is equal to the channel Bandwidth)
-
 # output options
 rangeCells: 300
 dopplerCells: 512
-outputFile: 'XAMBG_1011.hdf5' # output file
+outputFile: 'XAMBG_1011_test.hdf5' # output file
