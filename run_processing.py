@@ -1,3 +1,5 @@
+''' Main passive radar processing script '''
+
 import numpy as np
 import yaml
 import h5py
@@ -9,10 +11,10 @@ from passiveRadar.signal_utils import offset_compensation, channel_preprocessing
 from passiveRadar.clutter_removal import LS_Filter_Multiple
 from passiveRadar.range_doppler_processing import fast_xambg
 
+
 if __name__ == "__main__":
 
-    ## Example passive radar processing script
-
+    # get the configuration parameters
     config_fname = "PRconfig.yaml"
     config = getConfigParams(config_fname)
     

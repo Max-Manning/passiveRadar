@@ -1,3 +1,6 @@
+''' signal_utils.py: a collection of signal processing utility functions
+    for passive radar processing '''
+    
 import numpy as np
 import scipy.signal as signal
 
@@ -76,3 +79,4 @@ def channel_preprocessing(sig, dec, fc, Fs):
     IQ_tuned = frequency_shift(IQ, fc, Fs)
     IQd = decimate(IQ_tuned, dec)
     return IQd
+

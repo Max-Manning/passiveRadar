@@ -1,3 +1,6 @@
+''' config_params.py: Computes configuration parameters for passive radar
+    processing'''
+
 import yaml
 
 def getConfigParams(config_fname):

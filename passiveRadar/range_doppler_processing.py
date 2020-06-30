@@ -1,3 +1,5 @@
+''' range_doppler_processing.py: a collection of algorithms for computing the
+    cross-ambiguity function for passive radar '''
 import numpy as np
 import scipy.signal as signal
 from scipy.fftpack import fft   # use scipy's fftpack since np.fft.fft 

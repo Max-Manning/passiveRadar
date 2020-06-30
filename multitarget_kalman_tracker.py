@@ -1,3 +1,7 @@
+''' Kalman filter based target tracker that can handle multiple targets. Mostly
+    based on material from "Multitarget-Multisensor Tracking: Principles and 
+    Techniques" by Yaakov Bar-Shalom and Xiao-Rong Li'''
+    
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
