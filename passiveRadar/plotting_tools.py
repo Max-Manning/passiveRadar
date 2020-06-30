@@ -11,7 +11,7 @@ def persistence(X, k, hold, decay):
     a sequence of range-doppler maps
     
     Parameters: 
-
+    
     X: Input frame stack (NxMxL matrix)
     k: index of frame to acquire
     hold: number of samples to persist
