@@ -1,3 +1,5 @@
+# CONFIGURATION FILE FOR PASSIVE RADAR PROCESSING
+
 # input options
 inputFile: 'PassiveRadar_20191102_1011.hdf5' #HDF5 file containing data
 inputReferencePath: '/data/ref'        # path to reference channel in hdf5 file
@@ -20,4 +22,4 @@ blockLength: 262144 # coherent processing interval in samples (assuming the
 # output options
 rangeCells: 300
 dopplerCells: 512
-outputFile: 'XAMBG_1011_test.hdf5' # output file
+outputFile: 'XAMBG_1011.hdf5' # output file
