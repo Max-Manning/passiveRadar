@@ -67,7 +67,8 @@ def get_measurements(dataFrame, p, frame_extent):
     # clutter (small range / doppler)
     dataFrame[:8, :] = 0
     dataFrame[-8:, :] = 0
-    dataFrame[:,251:259] = 0
+    dopplerCenter = dataFrame.shape[1]//2
+    dataFrame[:, dopplerCenter-4:dopplerCenter+4] = 0
 
     # calculate the detection threshold. There are 300x512 = 153600 pixels per 
     # range doppler frame, so taking 99.8th percentile selects the strongest 300
@@ -119,7 +120,7 @@ def associate_measurements(trackState, candidateMeas):
     candidateDoppler    = candidateMeas[1, :]
     candidateStrength   = candidateMeas[2, :]
 
-    ########### FIRST VALIDATION STEP #########################################
+    ####################### FIRST VALIDATION STEP ##############################
 
     if track_status == 0:
         # if the track state is free we're not picky, we consider any measurement
@@ -143,7 +144,7 @@ def associate_measurements(trackState, candidateMeas):
     dopplerMeas     = candidateDoppler[earlyGate]
     strengthMeas    = candidateStrength[earlyGate]
 
-    # SECOND VALIDATION STEP (ONLY FOR CONFIRMED TRACKS)########################
+    ############ SECOND VALIDATION STEP (ONLY FOR CONFIRMED TRACKS) ############
 
     if track_status == 2: # confirmed tracks
         # apply a stricter validation gate based on the innovation
@@ -341,8 +342,7 @@ def multitarget_tracker(data, frame_extent, N_TRACKS):
         trackStates[i] =  initialize_track(None)
 
     # make a storage array for the results at each timestep
-    tracker_history = np.empty((Nframes, N_TRACKS), 
-        dtype = target_track_dtype)
+    tracker_history = np.empty((Nframes, N_TRACKS), dtype = target_track_dtype)
 
     # loop over input frames
     for i in range(Nframes):
@@ -411,15 +411,15 @@ if __name__ == "__main__":
     
     # find the indices of the tracks where there are confirmed targets
     tracker_status = tracker_history['status']
-    tracker_status_confirmed_idx = np.nonzero(tracker_status == 2)
+    tracker_status_confirmed_idx = np.nonzero(tracker_status != 2)
 
     #get the range and doppler values for each target track
     tracker_range = np.squeeze(tracker_history['estimate'][:,:,0]).copy()
     tracker_doppler = np.squeeze(tracker_history['estimate'][:,:,1]).copy()
 
     # if the target is uncorfirmed change the range/doppler values to nan
-    tracker_range[~tracker_status_confirmed_idx] = np.nan
-    tracker_doppler[~tracker_status_confirmed_idx] = np.nan
+    tracker_range[tracker_status_confirmed_idx] = np.nan
+    tracker_doppler[tracker_status_confirmed_idx] = np.nan
 
     # plot the tracks
     plt.figure(figsize = (16, 10))
