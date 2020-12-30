@@ -1,4 +1,4 @@
-![](C:\Users\macks\Documents\Python\passiveRadar\title_image.png)
+![](./title_image.png)
 
 ## What Is This???
 
