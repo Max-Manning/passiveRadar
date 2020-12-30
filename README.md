@@ -9,6 +9,7 @@ First clone the repository and make a conda environment with the required packag
 
 ```
 git clone https://github.com/Max-Manning/passiveRadar
+cd passiveRadar
 conda env create -f environment.yaml
 conda activate radar-env
 ```
