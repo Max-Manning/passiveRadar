@@ -11,7 +11,7 @@ First make a conda environment with the required packages (or install them manua
 conda env create -f environment.yaml
 conda activate radar-env
 ```
-You can download some example passive radar data from [here]( https://drive.google.com/open?id=18dG__H-nbuHJtG6WCHtPq3c_PRLqJA2O) (note that the file is >6GB). This data was recorded using FM radio broadcast as an illumination source and features signals from some planes flying around. If you want to record your own data, look [here](# recording your own data).
+You can download some example passive radar data from [here]( https://drive.google.com/open?id=18dG__H-nbuHJtG6WCHtPq3c_PRLqJA2O) (note that the file is >6GB). This data was recorded using FM radio broadcast as an illumination source and features signals from some planes flying around. If you want to record your own data, look [here](# recording-your-own-data).
 
 Put the data file in the same directory as `main.py`, and run the following command to process the data and save it to a file:
 
