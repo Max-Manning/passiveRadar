@@ -5,9 +5,10 @@
 This repository contains processing code for a software defined radio based passive radar. Passive radars don't transmit any signals of their own - instead, they locate targets by detecting the echoes of ambient radio signals that bounce off of them.  Check out [this page](https://dopplerfish.com/passive-radar/) for more information about how passive radar works.
 
 ## Usage
-First make a conda environment with the required packages (or install them manually).
+First clone the repository and make a conda environment with the required packages (or install them manually).
 
 ```
+git clone https://github.com/Max-Manning/passiveRadar
 conda env create -f environment.yaml
 conda activate radar-env
 ```
