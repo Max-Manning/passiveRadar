@@ -1,5 +1,5 @@
-Say you want to use h5import to import two binary data files, infile1.dat and 
-infile2.dat, into a single hdf5 file.
+Say you want to use h5import to import two binary data files, infile1.bin and 
+infile2.bin, into a single hdf5 file.
 
 First it is necessary to create two configuration files (we'll call them 
 config1.txt and config2.txt) which tell h5import how to interpret the data and 
@@ -32,7 +32,7 @@ INPUT-SIZE 8
 
 then you can use the command line argument below to do the import:
 
-h5import infile1.dat -c config1.txt infile2.dat -c config2.txt -o outfile.hdf5
+h5import infile1.bin -c config1.txt infile2.bin -c config2.txt -o outfile.hdf5
 
 
 Note that there are a bunch of additional settings on how to chunk the data in

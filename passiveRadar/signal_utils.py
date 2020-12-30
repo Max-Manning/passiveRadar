@@ -9,21 +9,25 @@ def normalize(x):
     return x/np.mean(np.abs(x).flatten())
 
 def decimate(x, q):
-    '''decimate x by a factor of q with some settings that I like'''
-    return signal.decimate(x, q, 20*q, ftype='fir', axis=0, zero_phase=False)
+    '''decimate x by a factor of q'''
+    return signal.decimate(x, q, 20*q, ftype='fir', axis=0)
+
+def resample(x, up, dn):
+    '''rational resampling by a factor of up/dn'''
+    return signal.resample_poly(x, up, dn, padtype='line')
 
 def deinterleave_IQ(interleavedIQ):
     '''convert interleaved IQ samples to complex64'''
     interleavedIQ = np.array(interleavedIQ)
     return (interleavedIQ[0:-1:2] + 1j*interleavedIQ[1::2]).astype(np.complex64)
 
-def frequency_shift(x, fc, Fs):
+def frequency_shift(x, fc, Fs, phase_offset=0):
     '''frequency shift x by fc where Fs is the sample rate of x'''
     nn = np.arange(x.shape[0], dtype=np.complex64)
-    return x*np.exp(1j*2*np.pi*fc*nn/Fs)
+    return x*np.exp(1j*2*np.pi*fc*nn/Fs + 1j*phase_offset)
 
 def xcorr(s1, s2, nlead, nlag):
-    ''' cross-correlated s1 and s2'''
+    ''' cross-correlate s1 and s2 with sample offsets from -1*nlag to nlead'''
     return signal.correlate(s1, np.pad(s2, (nlag, nlead), mode='constant'),
         mode='valid')
 

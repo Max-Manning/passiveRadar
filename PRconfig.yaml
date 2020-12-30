@@ -1,25 +1,48 @@
-# CONFIGURATION FILE FOR PASSIVE RADAR PROCESSING
+##########################     INPUT FILE OPTIONS     ########################## 
 
-# input options
-inputFile: 'PassiveRadar_20191102_1011.hdf5' #HDF5 file containing data
-inputReferencePath: '/data/ref'        # path to reference channel in hdf5 file
-inputSurveillancePath: '/data/srv'     # path to surveillance channel in hdf5 file
-# inputType: 'ichar' # samples expressed as interleaved fp32 or char
+#HDF5 file containing the input data
+input_file: 'PassiveRadar_20191102_1011.hdf5'
 
-inputSampleFreq: 2400000      # input sample rate in Hz
-inputCenterFreq: 102000000    # input center frequency in Hz (i.e. the 
-                              # frequency your radio is tuned to)
-channelFreq: 101900000        # center frequency of the FM radio channel in Hz
-channelBandwidth: 240000      # channel bandwidth in Hz
-                      
-# make sure the sample rate is evenly divisible by the channel bandwidth
+# interleaved_channels indicates whether both input channels are stored in a 
+# single field in the hdf5 file. If True, the reference and surveillance channel
+# data are assumed to be interleaved like this:
+#   [ ref_I[0], ref_Q[0], srv_I[0], srv_Q[0], ref_I[1], ref_Q[1] ... ] 
+# Set this to False if the reference and surveillance channel data are
+# stored in seperate fields. 
+interleaved_input_channels: False
 
-# processing options
-nFrames: 500        # number of frames to compute
-LSFilterLength: 96  # number of range cells for least squares filtering
-blockLength: 262144 # coherent processing interval in samples (assuming the 
-                    # sample rate is equal to the channel Bandwidth)
-# output options
-rangeCells: 300
-dopplerCells: 512
-outputFile: 'XAMBG_1011.hdf5' # output file
+# Paths to the reference/ surveillance channels in the input file. Ignored if 
+# interleaved_input_channels is True.
+input_ref_path: '/data/ref'  
+input_srv_path: '/data/srv'
+
+# Path to the interleaved data in the input file. Ignored if 
+# interleaved_channels is False. 
+interleaved_data_path: '/data'
+
+##########################     OUTPUT FILE OPTIONS    ##########################
+
+range_doppler_map_ftype: 'zarr' # file type for output- 'zarr' or 'hdf5'
+output_fname: 'XAMBG_1011' # output base filename
+num_frames: 1200 # number of range-doppler map frames to compute
+
+##########################    INPUT DATA PARAMETERS    #########################
+
+input_sample_rate: 2400000      # input sample rate in Hz
+input_center_freq: 102000000    # input center frequency in Hz
+channel_freq: 101900000         # center frequency of the FM radio channel in Hz
+channel_bandwidth: 200000       # channel bandwidth in Hz
+
+#########################    PROCESSING PARAMETERS    ##########################
+
+# Nominal value for the coherent processing interval in seconds. The doppler 
+# resolution is inversely proportional to this, i.e. a 2 second CPI corresponds
+# to a Doppler resolution of 0.5Hz.
+cpi_seconds_nominal: 2.0 
+max_doppler_nominal: 256.0  # The maximum desired doppler shift in Hz. 
+max_range_nominal: 200.0    # The maximum desired bistatic range in km.
+overlap_cpi: True           # whether to overlap CPI windows. 
+
+
+
+

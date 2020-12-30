@@ -88,7 +88,7 @@ def LS_Filter_SVD(refChannel, srvChannel, filterLen, peek=10,
         A[:, k] = np.roll(refChannel, lags[k])
     
     # obtain the singular value decomposition
-    U, S, V = np.linalg.svd(A, full_matrices=False)
+    U, S, VH = np.linalg.svd(A, full_matrices=False)
 
     # zero out any small singular values 
     eps = 1e-10
@@ -96,7 +96,7 @@ def LS_Filter_SVD(refChannel, srvChannel, filterLen, peek=10,
     Sinv[S < eps] = 0.0
 
     # compute the filter coefficients 
-    filterTaps = V.conj().T @ np.diag(Sinv) @ U.conj().T @ srvChannel
+    filterTaps = VH.conj().T @ np.diag(Sinv) @ U.conj().T @ srvChannel
 
     # Apply the least squares filter to the surveillance channel
     srvChannelFiltered = srvChannel - A @ filterTaps
@@ -131,7 +131,8 @@ def LS_Filter_Toeplitz(refChannel, srvChannel, filterLen, peek=10,
     '''
 
     if refChannel.shape != srvChannel.shape:
-        raise ValueError('Input vectors must have the same length')
+        raise ValueError(f'''Input vectors must have the same length - 
+        got {refChannel.shape} and {srvChannel.shape}''')
 
     # shift reference channel because for some reason the filtering works 
     # better when you allow the clutter filter to be noncausal
@@ -179,16 +180,14 @@ def LS_Filter_Multiple(refChannel, srvChannel, filterLen, sampleRate,
         if doppler == 0:
             srvChannelFiltered = LS_Filter_Toeplitz(refChannel, 
                 srvChannelFiltered, filterLen)
-            # or use any of the other block least squares filter implementations
         else:
             refMod = frequency_shift(refChannel, doppler, sampleRate)
             srvChannelFiltered = LS_Filter_Toeplitz(refMod, srvChannelFiltered,
                 filterLen)
-            # or use any of the other block least squares filter implementations
     return srvChannelFiltered
 
 def NLMS_filter(refChannel, srvChannel, filterLen, mu, peek=10, 
-    initialTaps=None, return_filter=False):
+    initialTaps=None, returnFilter=False):
 
     '''Normalized least mean square (NLMS) adaptive filter
 
@@ -244,7 +243,7 @@ def NLMS_filter(refChannel, srvChannel, filterLen, mu, peek=10,
         # save the output
         srvChannelFiltered[filterLen+k] = e
 
-    if return_filter:
+    if returnFilter:
         return srvChannelFiltered, w
     else:
         return srvChannelFiltered
@@ -258,8 +257,7 @@ def GAL_JPE(refChannel, srvChannel, latticeLen, delayLineLen, mu1, mu2,
     stage which uses the normalized least mean squares algorithm.
 
     A lot more computationally expensive than the NLMS filter but converges
-    faster, especially when the spectrum of the clutter signal is strongly
-    coloured    
+    faster, especially when the spectrum of the clutter signal isn't flat   
     
     Parameters:
         refChannel:     Array containing the reference channel signal

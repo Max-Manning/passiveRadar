@@ -5,184 +5,60 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
+import h5py
+import zarr
+import os
+import argparse
+from tqdm import tqdm
+from celluloid import Camera
 
-from passiveRadar.config_params    import getConfigParams
-from passiveRadar.target_detection import kalman_filter_dtype
-from passiveRadar.target_detection import adaptive_kalman_update
-from passiveRadar.target_detection import kalman_extrapolate
+from passiveRadar.config import getConfiguration
+from passiveRadar.target_detection import simple_target_tracker
 from passiveRadar.target_detection import CFAR_2D
+from passiveRadar.plotting_tools   import persistence
 
-# create a data type that represents the internal state of the 
-# target tracker
-target_track_dtype_simple = np.dtype([
-    ('lock_mode',       np.float, (4,)),
-    ('measurement',     np.float, (2,)),
-    ('measurement_idx', np.int,   (2,)),
-    ('estimate',        np.float, (2,)),
-    ('range_extent',    np.float),
-    ('doppler_extent',  np.float),
-    ('kalman_state',    kalman_filter_dtype)])
+def parse_args():
 
-def simple_track_update(currentState, inputFrame):
-    ''' Update step for passive radar target tracker.
+    parser = argparse.ArgumentParser(
+        description="PASSIVE RADAR TARGET TRACKER")
     
-    Parameters:
-        currentState: target_track_dtype_simple_simple containting the current state
-        of the target tracker
-        inputFrame: range-doppler map from which to acquire a measurement
-    Returns:
-        newState: target_track_dtype_simple_simple containing the updated target tracker
-        state'''
+    parser.add_argument(
+        '--config',
+        required=True,
+        type=str,
+        help="Path to the configuration file")
 
-    # Get the current tracker state
-    lockMode        = currentState['lock_mode'][0]
-    measurement     = currentState['measurement'][0]
-    measIdx         = currentState['measurement_idx'][0]
-    estimate        = currentState['estimate'][0]
-    rangeExtent     = currentState['range_extent'][0]
-    dopplerExtent   = currentState['doppler_extent'][0]
-    kalmanState     = currentState['kalman_state'][0]
+    parser.add_argument(
+        '--output',
+        choices=['video','frames', 'plot'], 
+        default='plot',
+        help="Output a video or a plot."
+    )
 
-    # Now based on the current tracker state we choose where on the
-    # input frame to look for our new measurement. If the tracker is 
-    # in an unlocked state we look for the target anywhere. If it is in 
-    # one of the target-locked states we restrict attention to a 
-    # rectangle around the previous measurement. The size of the
-    # rectangle depends on which of the target-locked states we're in.
-
-    lx = measIdx[1]
-    ly = measIdx[0]
-
-    # first lock state (initial lock on)
-    if (lockMode[1] == 1):
-        measurementGate = np.zeros(inputFrame.shape)
-        measurementGate[ly-24:ly+24,lx-24:lx+24] = 1.0
-        inputFrame = inputFrame * measurementGate
-
-    # second lock state (fully locked)
-    elif (lockMode[2] == 1):
-        measurementGate = np.zeros(inputFrame.shape)
-        measurementGate[ly-16:ly+16,lx-16:lx+16] = 1.0
-        inputFrame = inputFrame * measurementGate
-        
-    # third lock state (losing lock)
-    elif (lockMode[3] == 1):
-        measurementGate = np.zeros(inputFrame.shape)
-        measurementGate[ly-24:ly+24,lx-24:lx+24] = 1.0
-        inputFrame = inputFrame * measurementGate
-
-    # else unlocked (don't apply a measurement gate)
-
-    # obtain the new measurement by finding the indices of the 
-    # maximum amplitude point of the range-doppler map
-    newMeasIdx = np.unravel_index(np.argmax(inputFrame), inputFrame.shape)
-
-    # convert the indices to range-doppler values
-    range_meas = rangeExtent*(1 - newMeasIdx[0]/inputFrame.shape[0])
-    doppler_meas = dopplerExtent*(2*newMeasIdx[1]/inputFrame.shape[1] - 1)
-
-    # construct the new measurement vector
-    newMeasurement = np.array([range_meas, doppler_meas])
-
-    # check if we seem to be locked on to a target. If the new measurement
-    # is close to the estimate from the last time step then we assume that
-    # a target has been found and we are pleased about it
-    surprise_level = newMeasurement - estimate
-    badnessMetric = (surprise_level[0]**2 + surprise_level[1]**2)**0.5
-    targetFound    = badnessMetric < 12 
-
-    if targetFound:
-        # matrix encodes state update rules for target found
-        track_update_matrix = np.array([[0,1,0,0], [0,0,1,0], [0,0,1,0],[0,0,1,0]]).T
-    else:
-        # matrix encodes state update rules for target not found
-        track_update_matrix = np.array([[1,0,0,0], [1,0,0,0], [0,0,0,1],[1,0,0,0]]).T
-    
-    # update the tracker state
-    newLockMode = track_update_matrix @ lockMode
-
-    # use the Kalman filter to update the state estimate
-    newEstimate, newKalmanState = adaptive_kalman_update(newMeasurement, measurement, kalmanState)
-
-    newState = np.array([(newLockMode, newMeasurement, newMeasIdx, 
-        newEstimate, rangeExtent, dopplerExtent, newKalmanState)], dtype = target_track_dtype_simple)
-
-    return newState
-
-
-def run_target_tracker(data):
-
-    N_measurements = data.shape[2]
-
-    # create initial values for the Kalman Filter
-    # initial values for P and Q are taken from P.E. Howland et al, "FM radio 
-    # based bistatic radar"
-
-    x = np.array([30, 2, -20, -1])
-    P = np.diag([5.0, 0.0225, 0.04, 0.1])
-    F1 = np.array([[1,0,-0.003, 0], [0, 0,-0.003,-0.03], [0,0,1,1], [0,0,0,1]])
-    F2 = np.array([[1,1,0,0], [0,1,0,0], [0,0,1,1], [0,0,0,1]])
-    Q = np.diag([2.0, 0.02, 0.2, 0.05])
-    H = np.array([[1,0,0,0], [0,0,1,0]])
-    R = np.diag([5, 5])
-    S = np.diag([1, 1])
-
-    # initialize the target tracker state
-    lockMode      = np.array([1,0,0,0])    # start in unlocked state
-    estimate      = H @ x
-    measurement   = np.array([35.0, -30.0]) # random IC
-    measIdx       = np.array([50,50], dtype = np.int) # random IC
-    rangeExtent   = 375 # km
-    dopplerExtent = 256/1.092 # Hz
-    kalmanState   = np.array([(x, P, F1, F2, Q, H, R, S)], dtype=kalman_filter_dtype)
-    
-    trackerState = np.array([(lockMode, estimate, measurement,
-        measIdx, rangeExtent, dopplerExtent, kalmanState)], dtype = target_track_dtype_simple)
-
-    # preallocate an array to store the tracking results
-    history = np.empty((N_measurements,), dtype = target_track_dtype_simple)
-
-    # do the tracking!!111
-    for i in range(N_measurements):
-
-        # get a frame of the range-doppler map
-        dataFrame = data[:,:,i]
-
-        # normalize it
-        dataFrame = dataFrame/np.mean(np.abs(dataFrame).flatten())
-
-        # get the orientation right :))
-        dataFrame = np.fliplr(dataFrame.T)
-
-        # zero out the problematic sections (small range / doppler)
-        dataFrame[:8, :] = 0
-        dataFrame[-8:, :] = 0
-        dataFrame[:,250:260] = 0
-
-        # do the update step
-        trackerState = simple_track_update(trackerState, dataFrame)
-        
-        # save the results
-        history[i] = trackerState
-    
-    return history
+    return parser.parse_args()
 
 if __name__ == "__main__":
 
-    config_fname = "PRconfig.yaml"
-    config = getConfigParams(config_fname)
-
-    # load the processed passive radar data (range-doppler maps)
-    f = h5py.File(config['outputFile'], 'r')
-    xambg = np.abs(f['/xambg'])
+    args = parse_args()
+    config = getConfiguration(args.config)
+    xambgfile = config['range_doppler_map_fname']
+    if config['range_doppler_map_ftype'] == 'hdf5':
+        f = h5py.File(xambgfile, 'r')
+        xambg = np.abs(f['/xambg'])
+        f.close()   
+    else:
+        xambg = np.abs(zarr.load(xambgfile))
+    
+    print("Loaded range-doppler maps.")
     Nframes = xambg.shape[2]
-
+    print("Applying CFAR filter...")
     # CFAR filter each frame using a 2D kernel
     CF = np.zeros(xambg.shape)
-    for i in range(Nframes):
+    for i in tqdm(range(Nframes)):
         CF[:,:,i] = CFAR_2D(xambg[:,:,i], 18, 4)
 
-    history = run_target_tracker(CF)
+    print("Applying Kalman Filter...")
+    history = simple_target_tracker(CF, config['max_range_actual'], config['max_doppler_actual'])
 
     estimate = history['estimate']
     measurement = history['measurement']
@@ -196,15 +72,80 @@ if __name__ == "__main__":
     estimate_unlocked[~unlocked, 0] = np.nan
     estimate_unlocked[~unlocked, 1] = np.nan
 
-    # range_pred   = np.load('flightradar_range_1011.npy')
-    # doppler_pred = np.load('flightradar_doppler_1011.npy')
+    if args.output == 'plot':
+        plt.figure(figsize=(12,8))
+        plt.plot(estimate_locked[:,1], estimate_locked[:,0], 'b', linewidth=3)
+        plt.plot(estimate_unlocked[:,1], estimate_unlocked[:,0], c='r', linewidth=1, alpha=0.3)
+        plt.xlabel('Doppler Shift (Hz)')
+        plt.ylabel('Bistatic Range (km)')
+        plt.show()
 
-    plt.figure(figsize=(16,10))
-    plt.plot(estimate_locked[:,1], estimate_locked[:,0], 'b', linewidth=3)
-    plt.plot(estimate_unlocked[:,1], estimate_unlocked[:,0], c='r', linewidth=1, alpha=0.3)
-    plt.xlabel('Doppler Shift (Hz)')
-    plt.ylabel('Bistatic Range (km)')
-    plt.show()
+    else:
+
+        if args.output == 'frames':
+            savedir = os.path.join(os.getcwd(),  "IMG")
+            if not os.path.isdir(savedir):
+                os.makedirs(savedir)
+        else:
+            figure = plt.figure(figsize = (8, 4.5))
+            camera = Camera(figure)
+
+        print("Rendering frames...")
+        # loop over frames
+        for kk in tqdm(range(Nframes)):
+
+            # add a digital phosphor effect to make targets easier to see
+            data = persistence(CF, kk, 20, 0.90)
+            data = np.fliplr(data.T) # get the orientation right
+
+            if args.output == 'frames':
+                # get the save name for this frame
+                svname = os.path.join(savedir, 'img_' + "{0:0=3d}".format(kk) + '.png')
+                # make a figure
+                figure = plt.figure(figsize = (8, 4.5))
+            
+
+            # get max and min values for the color map (this is ad hoc, change as
+            # u see fit)
+            vmn = np.percentile(data.flatten(), 35)
+            vmx = 1.5*np.percentile(data.flatten(),99)
+
+            plt.imshow(data,
+                cmap = 'gnuplot2', 
+                vmin=vmn,
+                vmax=vmx, 
+                extent = [-1*config['max_doppler_actual'],config['max_doppler_actual'],0,config['max_range_actual']], 
+                aspect='auto')
+
+            if kk>3:
+                nr = np.arange(kk)
+                decay = np.flip(0.98**nr)
+                col = np.ones((kk, 4))
+                cc1 = col @ np.diag([0.2, 1.0, 0.7, 1.0])
+                cc2 = col @ np.diag([1.0, 0.2, 0.3, 1.0])
+                cc1[:,3] = decay
+                cc2[:,3] = decay
+                plt.scatter(estimate_locked[:kk,1], estimate_locked[:kk,0], 8,  marker='.', color=cc1)
+                plt.scatter(estimate_unlocked[:kk,1], estimate_unlocked[:kk,0], 8,  marker='.', color=cc2)
+
+            plt.xlim([-1*config['max_doppler_actual'],config['max_doppler_actual']])
+            plt.ylim([0,config['max_range_actual']])
+
+            plt.ylabel('Bistatic Range (km)')
+            plt.xlabel('Doppler Shift (Hz)')
+            plt.tight_layout()
+
+            if args.output == 'frames':
+                plt.savefig(svname, dpi=200)
+                plt.close()
+            else:
+                camera.snap()
+        if args.output == 'video':
+            print("Animating...")
+            animation = camera.animate(interval=40) # 25 fps
+            animation.save("SIMPLE_TRACKER_VIDEO.mp4", writer='ffmpeg')
+
+
 
 
 

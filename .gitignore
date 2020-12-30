@@ -1,2 +1,12 @@
+__pycache__
 passiveRadar/__pycache__
+.vscode/
+dask-worker-space/
+experimental/
 
+*.zarr
+*.hdf5
+*.npz
+*.mp4
+
+IMG/

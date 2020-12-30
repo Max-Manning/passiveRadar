@@ -1,0 +1,16 @@
+name: radar-env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - dask
+  - h5py
+  - matplotlib
+  - numpy
+  - pip
+  - pyyaml
+  - scipy
+  - tqdm
+  - zarr
+  - pip:
+    - celluloid
