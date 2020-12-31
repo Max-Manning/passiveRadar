@@ -45,7 +45,7 @@ python simple_kalman_tracker.py --config prconfig.yaml --mode video
 
 
 ## Recording Your Own Data
-To record passive radar data you will need a software defined radio with at least 2 coherent input channels. By far the cheapest way to do this is to use a pair of RTL-SDR dongles [modified to share a clock](http://kaira.sgo.fi/2013/09/16-dual-channel-coherent-digital.html). Other SDR platforms with multiple receive channels will also work, eg. LimeSDR, BladeRF 2.0 Micro, or USRP B210.
+To record passive radar data you will need a software defined radio with at least 2 coherent input channels. By far the cheapest way to do this is to use a pair of RTL-SDR dongles [modified to share a clock](http://kaira.sgo.fi/2013/09/16-dual-channel-coherent-digital.html). Other SDR platforms with multiple receive channels will also work, eg. KerberosSDR, LimeSDR, BladeRF 2.0 Micro, or USRP B210.
 
 If you use RTL-SDR dongles, the gnuradio flow chart shown below is a convenient way to record data.
 

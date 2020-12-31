@@ -29,10 +29,10 @@ def parse_args():
         help="Path to the configuration file")
 
     parser.add_argument(
-        '--output',
+        '--mode',
         choices=['video','frames', 'plot'], 
         default='plot',
-        help="Output a video or a plot."
+        help="Output a video, video frames or a plot."
     )
 
     return parser.parse_args()
