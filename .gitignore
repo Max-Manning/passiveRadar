@@ -10,3 +10,7 @@ experimental/
 *.mp4
 
 IMG/
+
+# Ignore ds stores
+.DS_Store
+**/.DS_Store
