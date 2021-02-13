@@ -23,29 +23,20 @@ def parse_args():
 
 def signal_preview(config):
 
-    inputFile = h5py.File(config['input_file'], 'r')
+    refInputFile = np.nan_to_num(np.fromfile(open(config['input_file_ref']), dtype=np.float32))
+    svrInputFile = np.nan_to_num(np.fromfile(open(config['input_file_srv']), dtype=np.float32))
 
-    if config['interleaved_input_channels']:
+    # get the first few seconds of data and use it to estimate the
+    # offset between the channels
+    ref = refInputFile[0:config['input_chunk_length']]
+    srv = svrInputFile[0:config['input_chunk_length']]
 
-        data = inputFile[config['interleaved_data_path']][0:config['input_chunk_length']]
-        data_IQ = deinterleave_IQ(data)
-        
-        ref = data_IQ[0::2]
-        srv = data_IQ[1::2]
-
-        offset = find_channel_offset(ref,srv,4,50000)
-
-    else:
-
-        # get the first few seconds of data and use it to estimate the
-        # offset between the channels
-        ref = inputFile[config['input_ref_path']][0:config['input_chunk_length']]
-        srv = inputFile[config['input_srv_path']][0:config['input_chunk_length']]
-
-        ref = deinterleave_IQ(ref)
-        srv = deinterleave_IQ(srv)
-        
-        offset = find_channel_offset(ref,srv,4,50000)
+    ref = deinterleave_IQ(ref)
+    srv = deinterleave_IQ(srv)
+    
+    # TODO: Something is also off here
+    offset = find_channel_offset(ref,srv,10,500)
+    print('OFFSET - signal preview', offset)
 
     plt.figure()
     plt.psd(ref, NFFT=8192, Fs=config['input_sample_rate'], 

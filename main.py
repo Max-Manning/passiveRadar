@@ -31,7 +31,8 @@ def main(config):
     print("-------------------------------------------------------------------")
     print("   RUNNING PASSIVE RADAR PROCESSING   ")
     print("-------------------------------------------------------------------")
-    print(f"Input file: {config['input_file']}")
+    print(f"Input file Reference: {config['input_file_ref']}")
+    print(f"Input file Surveilance: {config['input_file_srv']}")
     print(f"Using radio channel centered at {config['channel_freq']/1e6:.1f} MHz" \
         f" with bandwidth {config['channel_bandwidth']/1e3:.1f} kHz")
     print(f"Input sample rate {config['input_sample_rate']/1e6:.1f} MHz" \
@@ -41,73 +42,47 @@ def main(config):
     print(f"Maximum Doppler shift {config['max_doppler_actual']:.2f} Hz" \
         f" with Doppler resolution {config['doppler_cell_width']:.4f} Hz")
 
-    inputFile = h5py.File(config['input_file'], 'r')
+    refInputFile = np.nan_to_num(np.fromfile(open(config['input_file_ref']), dtype=np.float32))
+    svrInputFile = np.nan_to_num(np.fromfile(open(config['input_file_srv']), dtype=np.float32))
 
-    if config['interleaved_input_channels']:
+    # get the first few hundred thousand samples of data and use it to
+    #  estimate the offset between the channels
+    refc1 = refInputFile[0:20*config['cpi_samples']]
+    srvc1 = svrInputFile[0:20*config['cpi_samples']]
 
-        # get the first few hundred thousand samples of data and use it to
-        #  estimate the offset between the channels
-        data1 = inputFile[config['input_ref_path']][0:20*config['cpi_samples']]
-        data1 = deinterleave_IQ(data1)
-        refc1 = data1[0::2]
-        srvc1 = data1[1::2]
-        offset = find_channel_offset(refc1,srvc1,1,5000000)
+    ## TODO: Something is wrong with the offset. I'm setting manually to 0
+    offset = find_channel_offset(refc1,srvc1,1,5000000)
+    offset = 0
 
-        input_data = da.from_array(inputFile[config['interleaved_data_path']],     
-            chunks=(2 * config['input_chunk_length'],))
+    print('Offset', offset)
+
+    refc1 = deinterleave_IQ(refc1)
+    srvc1 = deinterleave_IQ(srvc1)
+
+    if offset > 0:
+        ref_data = da.from_array(refInputFile[offset:],     
+            chunks=(config['input_chunk_length'],))
+        srv_data = da.from_array(svrInputFile[:-offset],  
+            chunks=(config['input_chunk_length'],))
         
-        # de-interleave IQ samples
-        input_data = da.map_blocks(deinterleave_IQ, input_data, 
-            dtype=np.complex64, chunks=(config['input_chunk_length'],))
-        
-        # de-interleave channel samples
-        ref_data = input_data[0::2]
-        srv_data = input_data[1::2]
-
-        if offset > 0:
-            ref_data = ref_data[offset:]    
-            srv_data = srv_data[:-offset]
-        elif offset < 0:
-            ref_data = ref_data[:-offset]
-            srv_data = srv_data[offset:]
-
-        ref_data = ref_data.rechunk((config['input_chunk_length'],))
-        srv_data = srv_data.rechunk((config['input_chunk_length'],))
-
+    elif offset < 0:
+        ref_data = da.from_array(refInputFile[:-offset],     
+            chunks=(config['input_chunk_length'],))
+        srv_data = da.from_array(svrInputFile[offset:],  
+            chunks=(config['input_chunk_length'],))
     else:
+        ref_data = da.from_array(refInputFile,     
+            chunks=(config['input_chunk_length'],))
+        srv_data = da.from_array(svrInputFile,  
+            chunks=(config['input_chunk_length'],))
 
-        # get the first few hundred thousand samples of data and use it to
-        #  estimate the offset between the channels
-        refc1 = inputFile[config['input_ref_path']][0:10*config['cpi_samples']]
-        srvc1 = inputFile[config['input_srv_path']][0:10*config['cpi_samples']]
-        offset = find_channel_offset(refc1,srvc1,1,5000000)
-        refc1 = deinterleave_IQ(refc1)
-        srvc1 = deinterleave_IQ(srvc1)
-
-        if offset > 0:
-            ref_data = da.from_array(inputFile[config['input_ref_path']][offset:],     
-                chunks=(config['input_chunk_length'],))
-            srv_data = da.from_array(inputFile[config['input_srv_path']][:-offset],  
-                chunks=(config['input_chunk_length'],))
-            
-        elif offset < 0:
-            ref_data = da.from_array(inputFile[config['input_ref_path']][:-offset],     
-                chunks=(config['input_chunk_length'],))
-            srv_data = da.from_array(inputFile[config['input_srv_path']][offset:],  
-                chunks=(config['input_chunk_length'],))
-        else:
-            ref_data = da.from_array(inputFile[config['input_ref_path']],     
-                chunks=(config['input_chunk_length'],))
-            srv_data = da.from_array(inputFile[config['input_srv_path']],  
-                chunks=(config['input_chunk_length'],))
-
-        # de-interleave IQ samples
-        ref_data = da.map_blocks(deinterleave_IQ, ref_data, 
-            meta = np.zeros((config['input_chunk_length']//2,), dtype=np.complex64),
-            dtype=np.complex64, chunks=(config['input_chunk_length']//2,))
-        srv_data = da.map_blocks(deinterleave_IQ, srv_data, 
-            meta = np.zeros((config['input_chunk_length']//2,), dtype=np.complex64),
-            dtype=np.complex64, chunks=(config['input_chunk_length']//2,))
+    # de-interleave IQ samples
+    ref_data = da.map_blocks(deinterleave_IQ, ref_data,
+        meta = np.zeros((config['input_chunk_length']//2,), dtype=np.complex64),
+        dtype=np.complex64, chunks=(config['input_chunk_length']//2,))
+    srv_data = da.map_blocks(deinterleave_IQ, srv_data,
+        meta = np.zeros((config['input_chunk_length']//2,), dtype=np.complex64),
+        dtype=np.complex64, chunks=(config['input_chunk_length']//2,))
 
     print(f"Successfully loaded data.")
     print(f"Corrected a sample offset of {offset} samples between channels")
