@@ -74,7 +74,7 @@ if __name__ == "__main__":
     tracker_range[tracker_status_confirmed_idx] = np.nan
     tracker_doppler[tracker_status_confirmed_idx] = np.nan
 
-    if args.output == 'plot':
+    if args.mode == 'plot':
         # # plot the tracks
         plt.figure(figsize = (16, 10))
         plt.scatter(tracker_doppler, tracker_range, marker='.')
@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
     else:
 
-        if args.output == 'frames':
+        if args.mode == 'frames':
             savedir = os.path.join(os.getcwd(),  "IMG")
             if not os.path.isdir(savedir):
                 os.makedirs(savedir)
@@ -100,7 +100,7 @@ if __name__ == "__main__":
             data = persistence(CF, kk, 20, 0.90)
             data = np.fliplr(data.T) # get the orientation right
 
-            if args.output == 'frames':
+            if args.mode == 'frames':
                 # get the save name for this frame
                 svname = os.path.join(savedir, 'img_' + "{0:0=3d}".format(kk) + '.png')
                 # make a figure
@@ -138,12 +138,12 @@ if __name__ == "__main__":
             plt.xlabel('Doppler Shift (Hz)')
             plt.tight_layout()
 
-            if args.output == 'frames':
+            if args.mode == 'frames':
                 plt.savefig(svname, dpi=200)
                 plt.close()
             else:
                 camera.snap()
-        if args.output == 'video':
+        if args.mode == 'video':
             print("Animating...")
             animation = camera.animate(interval=40) # 25 fps
             animation.save("TRACKER_VIDEO.mp4", writer='ffmpeg')
