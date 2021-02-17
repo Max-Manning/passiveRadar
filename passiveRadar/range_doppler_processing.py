@@ -1,24 +1,23 @@
 ''' range_doppler_processing.py: a collection of algorithms for computing the
     cross-ambiguity function for passive radar '''
-    
+
 import numpy as np
 import scipy.signal as signal
-from scipy.fftpack import fft   # use scipy's fftpack since np.fft.fft 
-                                #automatically promotes input data to complex128
-                                
+from scipy.fftpack import fft   # use scipy's fftpack since np.fft.fft
+# automatically promotes input data to complex128
+
 from passiveRadar.signal_utils import frequency_shift, xcorr
 
 
 def fast_xambg(refChannel,
-    srvChannel,
-    rangeBins,
-    freqBins,
-    inputLen=None,
-    window=None,
-    shortFilt=True):
-
+               srvChannel,
+               rangeBins,
+               freqBins,
+               inputLen=None,
+               window=None,
+               shortFilt=True):
     ''' Fast Cross-Ambiguity Fuction (frequency domain method)
-    
+
     Args:
         refChannel: Reference channel data
 
@@ -51,8 +50,8 @@ def fast_xambg(refChannel,
     # if the iputs are too short, zero-pad to the correct length
     if (refChannel.shape[0] != inputLen) and (inputLen is not None):
         padding = inputLen - refChannel.shape[0]
-        refChannel = np.pad(refChannel, (0,padding), mode='constant')
-        srvChannel = np.pad(srvChannel, (0,padding), mode='constant')
+        refChannel = np.pad(refChannel, (0, padding), mode='constant')
+        srvChannel = np.pad(srvChannel, (0, padding), mode='constant')
 
     if isinstance(window, (tuple, str)):
         window = signal.get_window(window, inputLen)
@@ -64,7 +63,7 @@ def fast_xambg(refChannel,
     xambg = np.zeros((freqBins, rangeBins+1, 1), dtype=np.complex64)
 
     # complex conjugate of the second input vector
-    srvChannelConj = np.conj(srvChannel)    
+    srvChannelConj = np.conj(srvChannel)
 
     if shortFilt:
         # precompute short FIR filter for decimation (all ones filter with length
@@ -72,18 +71,19 @@ def fast_xambg(refChannel,
         dtaps = np.ones((ndecim + 1,))
     else:
         # precompute long FIR filter for decimation. (flat top filter of length
-        # 10*decimation factor).  
+        # 10*decimation factor).
         dtaps = signal.firwin(10*ndecim + 1, 1. / ndecim, window='flattop')
 
     dfilt = signal.dlti(dtaps, 1)
 
-    # loop over range bins 
+    # loop over range bins
     for k, lag in enumerate(np.arange(-1*rangeBins, 1)):
         channelProduct = np.roll(srvChannelConj, lag)*refChannel
         if window is not None:
             channelProduct *= window
-        #decimate the product of the reference channel and the delayed surveillance channel
-        xambg[:,k,0] = signal.decimate(channelProduct, ndecim, ftype=dfilt)[0:freqBins]
+        # decimate the product of the reference channel and the delayed surveillance channel
+        xambg[:, k, 0] = signal.decimate(
+            channelProduct, ndecim, ftype=dfilt)[0:freqBins]
 
     # take the FFT along the first axis (Doppler)
     xambg = np.fft.fftshift(fft(xambg, axis=0), axes=0)
@@ -92,7 +92,7 @@ def fast_xambg(refChannel,
 
 def direct_xambg(refChannel, srvChannel, rangeBins, freqBins, sampleRate):
     ''' Direct Cross-Ambiguity Fuction (time domain method)
-    
+
     Args:
         refChannel: reference channel data
         srvChannel: surveillance channel data
@@ -119,6 +119,6 @@ def direct_xambg(refChannel, srvChannel, rangeBins, freqBins, sampleRate):
         # create a frequency shifted copy of the reference signal
         ref_shifted = frequency_shift(refChannel, df, sampleRate)
         # correlate surveillance and shifted reference signals
-        xambg[i,:,0] = xcorr(ref_shifted, srvChannel, rangeBins, 0)
-    
+        xambg[i, :, 0] = xcorr(ref_shifted, srvChannel, rangeBins, 0)
+
     return xambg
