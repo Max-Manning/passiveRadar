@@ -5,7 +5,7 @@ import argparse
 
 from passiveRadar.config import getConfiguration
 from passiveRadar.signal_utils import find_channel_offset, \
-    deinterleave_IQ, resample, frequency_shift, xcorr
+    deinterleave_IQ, resample, frequency_shift, xcorr, preprocess_kerberossdr_input
 
 
 def parse_args():
@@ -24,22 +24,20 @@ def parse_args():
 
 def signal_preview(config):
 
-    refInputFile = np.nan_to_num(np.fromfile(
+    refInputFile = preprocess_kerberossdr_input(np.fromfile(
         open(config['input_file_ref']), dtype=np.float32))
-    svrInputFile = np.nan_to_num(np.fromfile(
+    svrInputFile = preprocess_kerberossdr_input(np.fromfile(
         open(config['input_file_srv']), dtype=np.float32))
 
     # get the first few seconds of data and use it to estimate the
     # offset between the channels
-    ref = refInputFile[0:config['input_chunk_length']]
-    srv = svrInputFile[0:config['input_chunk_length']]
+    ref = refInputFile[0:20*config['cpi_samples']]
+    srv = svrInputFile[0:20*config['cpi_samples']]
 
     ref = deinterleave_IQ(ref)
     srv = deinterleave_IQ(srv)
 
-    # TODO: Something is also off here
-    offset = find_channel_offset(ref, srv, 10, 500)
-    print('OFFSET - signal preview', offset)
+    offset = find_channel_offset(ref, srv, 1, 5000000)
 
     plt.figure()
     plt.psd(ref, NFFT=8192, Fs=config['input_sample_rate'],

@@ -93,3 +93,16 @@ def channel_preprocessing(sig, dec, fc, Fs):
     IQ_tuned = frequency_shift(IQ, fc, Fs)
     IQd = decimate(IQ_tuned, dec)
     return IQd
+
+
+def preprocess_kerberossdr_input(arr):
+    '''
+    Found this solution from https://stackoverflow.com/questions/41190852/most-efficient-way-to-forward-fill-nan-values-in-numpy-array/41191127
+    '''
+    mask = np.isnan(arr)
+    idx = np.where(~mask, np.arange(mask.size), 0)
+    np.maximum.accumulate(idx, out=idx)
+    out = arr[idx]
+
+    # Clip data to avoid having overflow when multiplying too big numbers
+    return np.clip(out, -1e+10, 1e+10)

@@ -9,7 +9,7 @@ import argparse
 
 from passiveRadar.config import getConfiguration
 from passiveRadar.signal_utils import find_channel_offset, \
-    deinterleave_IQ, frequency_shift, resample
+    deinterleave_IQ, frequency_shift, resample, preprocess_kerberossdr_input
 from passiveRadar.clutter_removal import LS_Filter_Multiple, NLMS_filter
 from passiveRadar.range_doppler_processing import fast_xambg
 
@@ -43,9 +43,9 @@ def main(config):
     print(f"Maximum Doppler shift {config['max_doppler_actual']:.2f} Hz"
           f" with Doppler resolution {config['doppler_cell_width']:.4f} Hz")
 
-    refInputFile = np.nan_to_num(np.fromfile(
+    refInputFile = preprocess_kerberossdr_input(np.fromfile(
         open(config['input_file_ref']), dtype=np.float32))
-    svrInputFile = np.nan_to_num(np.fromfile(
+    svrInputFile = preprocess_kerberossdr_input(np.fromfile(
         open(config['input_file_srv']), dtype=np.float32))
 
     # get the first few hundred thousand samples of data and use it to
@@ -55,7 +55,6 @@ def main(config):
 
     # TODO: Something is wrong with the offset. I'm setting manually to 0
     offset = find_channel_offset(refc1, srvc1, 1, 5000000)
-    offset = 0
 
     print('Offset', offset)
 
@@ -177,8 +176,6 @@ def main(config):
                           dtype=np.complex64,
                           chunks=(config['num_doppler_cells'], config['num_range_cells']+1, 1))
 
-    print(f"Saving range-doppler maps to to {config['range_doppler_map_fname']}," \
-        f" metadata to {config['meta_fname']}")
     print(f"Saving range-doppler maps to to {config['range_doppler_map_fname']},"
           f" metadata to {config['meta_fname']}")
     print(f"Output shape: {xambg.shape}, dtype: {xambg.dtype}")
