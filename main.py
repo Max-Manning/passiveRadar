@@ -1,5 +1,4 @@
 import numpy as np
-import h5py
 import zarr
 import dask.array as da
 import scipy.signal as signal
@@ -188,29 +187,15 @@ def main(config):
     np.savez(config['meta_fname'], frame_timestamps=frame_timestamps,
              range_bins=range_bins, doppler_bins=doppler_bins)
 
-    if config['range_doppler_map_ftype'] == 'hdf5':
-        # save the result to a hdf5 file
-        outfile = h5py.File(config['range_doppler_map_fname'])
-        d = outfile.require_dataset(
-            '/xambg', shape=xambg.shape, dtype=xambg.dtype)
-        with ProgressBar():
-            da.store(xambg, d)
-        outfile.close()
-
-    elif config['range_doppler_map_ftype'] == 'zarr':
-        # save the result to a zarr file
-        outfile = zarr.open(config['range_doppler_map_fname'],
-                            mode='w',
-                            shape=xambg.shape,
-                            chunks=(config['num_doppler_cells'],
-                                    config['num_range_cells']+1, 1),
-                            dtype=xambg.dtype)
-        with ProgressBar():
-            xambg.to_zarr(outfile)
-
-    else:
-        raise ValueError(
-            "Unsupported output file type. Enter 'hdf5' or 'zarr'")
+    # save the result to a zarr file
+    outfile = zarr.open(config['range_doppler_map_fname'],
+                        mode='w',
+                        shape=xambg.shape,
+                        chunks=(config['num_doppler_cells'],
+                                config['num_range_cells']+1, 1),
+                        dtype=xambg.dtype)
+    with ProgressBar():
+        xambg.to_zarr(outfile)
 
 
 if __name__ == "__main__":

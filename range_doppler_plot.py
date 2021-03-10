@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import h5py
 import zarr
 import os
 import argparse
@@ -42,12 +41,7 @@ if __name__ == "__main__":
     xambgfile = config['range_doppler_map_fname']
     CFARfile = config['output_fname'] + "_CFAR.zarr"
 
-    if config['range_doppler_map_ftype'] == 'hdf5':
-        f = h5py.File(xambgfile, 'r')
-        xambg = np.abs(f['/xambg'])
-        f.close()
-    else:
-        xambg = np.abs(zarr.load(xambgfile))
+    xambg = np.abs(zarr.load(xambgfile))
     Nframes = xambg.shape[2]
 
     print("Loaded range-doppler map frames.")

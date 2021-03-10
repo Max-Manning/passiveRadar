@@ -4,7 +4,6 @@ channels:
   - defaults
 dependencies:
   - dask
-  - h5py
   - matplotlib
   - numpy
   - pip

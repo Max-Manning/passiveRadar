@@ -6,7 +6,6 @@ input_file_srv: './data/drone_tests/circulating/output2'
 
 ##########################     OUTPUT FILE OPTIONS    ##########################
 
-range_doppler_map_ftype: 'zarr' # file type for output- 'zarr' or 'hdf5'
 output_fname: 'XAMBG_1011' # output base filename
 num_frames: 1200 # number of range-doppler map frames to compute
 

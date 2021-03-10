@@ -79,8 +79,7 @@ def getConfiguration(config_fname):
         config['output_chunk_length'] = config['cpi']
         config['frame_interval'] = config['cpi_seconds_actual']
 
-    config['range_doppler_map_fname'] = config['output_fname'] + '.' \
-        + config['range_doppler_map_ftype']
+    config['range_doppler_map_fname'] = config['output_fname'] + '.zarr'
 
     config['meta_fname'] = config['output_fname'] + '.npz'
 
