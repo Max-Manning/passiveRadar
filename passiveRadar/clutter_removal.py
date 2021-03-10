@@ -3,11 +3,12 @@ import scipy.signal as signal
 from scipy.linalg import solve_toeplitz
 from passiveRadar.signal_utils import xcorr, frequency_shift
 
-def LS_Filter(refChannel, srvChannel, filterLen, reg=1.0, peek=10, 
-    return_filter=False):
+
+def LS_Filter(refChannel, srvChannel, filterLen, reg=1.0, peek=10,
+              return_filter=False):
     '''Block least squares adaptive filter. Computes filter taps using the 
     direct matrix inversion method.  
-    
+
     Parameters:
         refChannel:     Array containing the reference channel signal
         srvChannel:     Array containing the surveillance channel signal
@@ -29,12 +30,12 @@ def LS_Filter(refChannel, srvChannel, filterLen, reg=1.0, peek=10,
         raise ValueError('Input vectors must have the same length')
 
     lags = np.arange(-1*peek, filterLen)
-    
+
     # Create a matrix of time-shited copies of the reference channel signal
     A = np.zeros((refChannel.shape[0], filterLen+peek), dtype=np.complex64)
     for k in range(lags.shape[0]):
         A[:, k] = np.roll(refChannel, lags[k])
-    
+
     # compute the autocorrelation matrix of ref
     ATA = A.conj().T @ A
 
@@ -55,12 +56,13 @@ def LS_Filter(refChannel, srvChannel, filterLen, reg=1.0, peek=10,
     else:
         return srvChannelFiltered
 
-def LS_Filter_SVD(refChannel, srvChannel, filterLen, peek=10, 
-    return_filter = False):
+
+def LS_Filter_SVD(refChannel, srvChannel, filterLen, peek=10,
+                  return_filter=False):
     '''Block least squares adaptive filter. Computes filter taps using the 
     singular value decomposition. Slower than the direct matrix inversion 
     method, but doesn't get upset if the data matrix is close to singular.
-    
+
     Parameters:
         refChannel:     Array containing the reference channel signal
         srvChannel:     Array containing the surveillance channel signal
@@ -81,21 +83,21 @@ def LS_Filter_SVD(refChannel, srvChannel, filterLen, peek=10,
 
     # Time lag associated with each tap in the least squares filter
     lags = np.arange(-1*peek, filterLen)
-    
+
     # Create a matrix of time-shited copies of the reference channel signal
     A = np.zeros((refChannel.shape[0], filterLen+peek), dtype=np.complex64)
     for k in range(lags.shape[0]):
         A[:, k] = np.roll(refChannel, lags[k])
-    
+
     # obtain the singular value decomposition
     U, S, VH = np.linalg.svd(A, full_matrices=False)
 
-    # zero out any small singular values 
+    # zero out any small singular values
     eps = 1e-10
     Sinv = 1/S
     Sinv[S < eps] = 0.0
 
-    # compute the filter coefficients 
+    # compute the filter coefficients
     filterTaps = VH.conj().T @ np.diag(Sinv) @ U.conj().T @ srvChannel
 
     # Apply the least squares filter to the surveillance channel
@@ -106,14 +108,15 @@ def LS_Filter_SVD(refChannel, srvChannel, filterLen, peek=10,
     else:
         return srvChannelFiltered
 
-def LS_Filter_Toeplitz(refChannel, srvChannel, filterLen, peek=10, 
-        return_filter=False):
+
+def LS_Filter_Toeplitz(refChannel, srvChannel, filterLen, peek=10,
+                       return_filter=False):
     '''Block east squares adaptive filter. Computes filter coefficients using
     scipy's solve_toeplitz function. This assumes the autocorrelation matrix of 
     refChannel is Hermitian and Toeplitz (i.e. wide the reference signal is
     wide sense stationary). Faster than the direct matrix inversion method but
     inaccurate if the assumptions are violated. 
-    
+
     Parameters:
         refChannel:     Array containing the reference channel signal
         srvChannel:     Array containing the surveillance channel signal
@@ -134,23 +137,23 @@ def LS_Filter_Toeplitz(refChannel, srvChannel, filterLen, peek=10,
         raise ValueError(f'''Input vectors must have the same length - 
         got {refChannel.shape} and {srvChannel.shape}''')
 
-    # shift reference channel because for some reason the filtering works 
+    # shift reference channel because for some reason the filtering works
     # better when you allow the clutter filter to be noncausal
     refChannelShift = np.roll(refChannel, -1*peek)
 
     # compute the first column of the autocorelation matrix of ref
-    autocorrRef = xcorr(refChannelShift, refChannelShift, 0, 
-        filterLen + peek - 1)
+    autocorrRef = xcorr(refChannelShift, refChannelShift, 0,
+                        filterLen + peek - 1)
 
     # compute the cross-correlation of ref and srv
-    xcorrSrvRef = xcorr(srvChannel, refChannelShift, 0, 
-        filterLen + peek - 1)
+    xcorrSrvRef = xcorr(srvChannel, refChannelShift, 0,
+                        filterLen + peek - 1)
 
     # solve the Toeplitz least squares problem
     filterTaps = solve_toeplitz(autocorrRef, xcorrSrvRef)
 
     # compute clutter signal and remove from surveillance Channel
-    clutter = np.convolve(refChannelShift, filterTaps, mode = 'full')
+    clutter = np.convolve(refChannelShift, filterTaps, mode='full')
     clutter = clutter[0:srvChannel.shape[0]]
     srvChannelFiltered = srvChannel - clutter
 
@@ -159,8 +162,9 @@ def LS_Filter_Toeplitz(refChannel, srvChannel, filterLen, peek=10,
     else:
         return srvChannelFiltered
 
-def LS_Filter_Multiple(refChannel, srvChannel, filterLen, sampleRate, 
-    dopplerBins = [0]):
+
+def LS_Filter_Multiple(refChannel, srvChannel, filterLen, sampleRate,
+                       dopplerBins=[0]):
     '''Clutter removal with least squares filter. This function allows the least
     squares filter to be applied over several frequency bins. Useful when there
     is significant clutter at nonzero doppler values.
@@ -178,17 +182,17 @@ def LS_Filter_Multiple(refChannel, srvChannel, filterLen, sampleRate,
     srvChannelFiltered = srvChannel
     for doppler in dopplerBins:
         if doppler == 0:
-            srvChannelFiltered = LS_Filter_Toeplitz(refChannel, 
-                srvChannelFiltered, filterLen)
+            srvChannelFiltered = LS_Filter_Toeplitz(refChannel,
+                                                    srvChannelFiltered, filterLen)
         else:
             refMod = frequency_shift(refChannel, doppler, sampleRate)
             srvChannelFiltered = LS_Filter_Toeplitz(refMod, srvChannelFiltered,
-                filterLen)
+                                                    filterLen)
     return srvChannelFiltered
 
-def NLMS_filter(refChannel, srvChannel, filterLen, mu, peek=10, 
-    initialTaps=None, returnFilter=False):
 
+def NLMS_filter(refChannel, srvChannel, filterLen, mu, peek=10,
+                initialTaps=None, returnFilter=False):
     '''Normalized least mean square (NLMS) adaptive filter
 
     Parameters:
@@ -214,10 +218,9 @@ def NLMS_filter(refChannel, srvChannel, filterLen, mu, peek=10,
         w1 = w0 + mu*u*e.conj()/(u.conj().T @ u)
         return w1, e
 
-
     if initialTaps is None:
         # initialize the filter taps to zeros
-        w = np.zeros((filterLen+peek,), dtype = np.complex64)
+        w = np.zeros((filterLen+peek,), dtype=np.complex64)
     else:
         # use the specified initial filter taps
         w = initialTaps
@@ -228,7 +231,7 @@ def NLMS_filter(refChannel, srvChannel, filterLen, mu, peek=10,
     refVector = np.flip(refChannel[0:filterLen+peek])
 
     # an array for the result
-    srvChannelFiltered = np.zeros(srvChannel.shape, dtype = np.complex64)
+    srvChannelFiltered = np.zeros(srvChannel.shape, dtype=np.complex64)
 
     # loop over input samples
     for k in range(srvChannel.shape[0] - filterLen - peek):
@@ -236,7 +239,7 @@ def NLMS_filter(refChannel, srvChannel, filterLen, mu, peek=10,
         # update the input vector
         refVector = np.append(refChannel[filterLen+k+peek], refVector[:-1])
 
-        # use the NLMS algorithm to get the new error estimate and update the 
+        # use the NLMS algorithm to get the new error estimate and update the
         # filter coefficients
         w, e = NLMS_update(refVector, srvChannel[k+filterLen], w, mu)
 
@@ -248,8 +251,9 @@ def NLMS_filter(refChannel, srvChannel, filterLen, mu, peek=10,
     else:
         return srvChannelFiltered
 
-def GAL_JPE(refChannel, srvChannel, latticeLen, delayLineLen, mu1, mu2, 
-    peek=10, return_filter=False):
+
+def GAL_JPE(refChannel, srvChannel, latticeLen, delayLineLen, mu1, mu2,
+            peek=10, return_filter=False):
     ''' Gradient Adaptive Lattice Joint Process Estimator
 
     Consists of an adaptive lattice stage which uses the gradient adaptive 
@@ -258,7 +262,7 @@ def GAL_JPE(refChannel, srvChannel, latticeLen, delayLineLen, mu1, mu2,
 
     A lot more computationally expensive than the NLMS filter but converges
     faster, especially when the spectrum of the clutter signal isn't flat   
-    
+
     Parameters:
         refChannel:     Array containing the reference channel signal
         srvChannel:     Array containing the surveillance channel signal
@@ -295,39 +299,41 @@ def GAL_JPE(refChannel, srvChannel, latticeLen, delayLineLen, mu1, mu2,
                             or equal to the lattice filter order""")
 
     # Initialize joint process estimator parameters
-    N = refChannel.shape[0] # number of time steps
+    N = refChannel.shape[0]  # number of time steps
     # forward prediction errors
-    f   = np.zeros((delayLineLen,), dtype=np.complex64) 
+    f = np.zeros((delayLineLen,), dtype=np.complex64)
     # backward prediction errors
-    b   = np.zeros((delayLineLen,), dtype=np.complex64)
-    # old backward prediction coefficients 
-    bo  = np.zeros((delayLineLen,), dtype=np.complex64) 
+    b = np.zeros((delayLineLen,), dtype=np.complex64)
+    # old backward prediction coefficients
+    bo = np.zeros((delayLineLen,), dtype=np.complex64)
     # lattice reflection coefficients
-    k   = np.zeros((delayLineLen,), dtype=np.complex64) 
+    k = np.zeros((delayLineLen,), dtype=np.complex64)
     # normalization factor
-    P   = np.zeros((delayLineLen,), dtype=np.complex64) + 1e-8 
+    P = np.zeros((delayLineLen,), dtype=np.complex64) + 1e-8
     # transversal filter coefficients
-    h   = np.zeros((delayLineLen,), dtype=np.complex64) 
+    h = np.zeros((delayLineLen,), dtype=np.complex64)
 
     # Additional parameters (feel free to experiment but empirically i've found
     # that these ones are ok)
-    beta = 0.9; gamma = 0.999; delta = 1e-8
+    beta = 0.9
+    gamma = 0.999
+    delta = 1e-8
 
     # an array for the output values
-    srvChannelFiltered = np.zeros(srvChannel.shape, dtype = np.complex64)
+    srvChannelFiltered = np.zeros(srvChannel.shape, dtype=np.complex64)
 
-    for n in range(N - peek - 1): # loop over sample times
-        bo  = b.copy() # save backward prediction errors from the last timestep
+    for n in range(N - peek - 1):  # loop over sample times
+        bo = b.copy()  # save backward prediction errors from the last timestep
         f[0] = refChannel[n + peek]
         b[0] = refChannel[n + peek]
 
         # lattice filter prediction
         for m in range(1, latticeLen):
-            f[m] = f[m-1]  - np.conj(k[m])*bo[m-1] # forward prediction error
+            f[m] = f[m-1] - np.conj(k[m])*bo[m-1]  # forward prediction error
             b[m] = bo[m-1] - k[m]*f[m-1]           # backward prediction error
-        
+
         # lattice filter coefficient update
-        for m in range(1, latticeLen): 
+        for m in range(1, latticeLen):
             # instantaneous energy estimate
             Em = np.abs(f[m-1])**2 + np.abs(bo[m-1])**2
             # filtered energy estimate
@@ -336,9 +342,9 @@ def GAL_JPE(refChannel, srvChannel, latticeLen, delayLineLen, mu1, mu2,
             grad = np.conj(f[m-1])*b[m] + bo[m-1]*np.conj(f[m])
             # reflection coefficient update
             k[m] = k[m] + mu1*grad/(P[m-1] + 1e-10)
-        
+
         if partialLattice:
-            # if length of the lattice filter is less than the length of the 
+            # if length of the lattice filter is less than the length of the
             # transversal filter then the rest is just a delay line
             # (k[m] = 0 for latticeLen < m < delayLineLen)
             b[latticeLen:] = bo[latticeLen-1:-1]
@@ -346,7 +352,6 @@ def GAL_JPE(refChannel, srvChannel, latticeLen, delayLineLen, mu1, mu2,
             for m in range(latticeLen, delayLineLen):
                 # get the remaining backward prediction errors
                 b[m] = bo[m-1]
-        
 
         # get the adaptive filter output
         e = srvChannel[n] - h.conj().T @ b
@@ -354,12 +359,11 @@ def GAL_JPE(refChannel, srvChannel, latticeLen, delayLineLen, mu1, mu2,
         h = h + mu2*np.conj(e)*b/(b.conj().T @ b + 1e-10)
         # save the result
         srvChannelFiltered[n] = e
-    
+
         # variable step size for lattice filter (starts big and gets small)
         mu1 = min(gamma*mu1 + delta*e**2, 5e-3)
-    
+
     if return_filter:
         return srvChannelFiltered, k, h
     else:
         return srvChannelFiltered
-        

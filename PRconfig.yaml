@@ -1,24 +1,8 @@
 ##########################     INPUT FILE OPTIONS     ########################## 
 
-#HDF5 file containing the input data
-input_file: 'PassiveRadar_20191102_1011.hdf5'
-
-# interleaved_channels indicates whether both input channels are stored in a 
-# single field in the hdf5 file. If True, the reference and surveillance channel
-# data are assumed to be interleaved like this:
-#   [ ref_I[0], ref_Q[0], srv_I[0], srv_Q[0], ref_I[1], ref_Q[1] ... ] 
-# Set this to False if the reference and surveillance channel data are
-# stored in seperate fields. 
-interleaved_input_channels: False
-
-# Paths to the reference/ surveillance channels in the input file. Ignored if 
-# interleaved_input_channels is True.
-input_ref_path: '/data/ref'  
-input_srv_path: '/data/srv'
-
-# Path to the interleaved data in the input file. Ignored if 
-# interleaved_channels is False. 
-interleaved_data_path: '/data'
+# Binary input files
+input_file_ref: './data/drone_tests/circulating/output1'  
+input_file_srv: './data/drone_tests/circulating/output2'
 
 ##########################     OUTPUT FILE OPTIONS    ##########################
 
@@ -29,20 +13,16 @@ num_frames: 1200 # number of range-doppler map frames to compute
 ##########################    INPUT DATA PARAMETERS    #########################
 
 input_sample_rate: 2400000      # input sample rate in Hz
-input_center_freq: 102000000    # input center frequency in Hz
-channel_freq: 101900000         # center frequency of the FM radio channel in Hz
-channel_bandwidth: 200000       # channel bandwidth in Hz
+input_center_freq: 560000000    # input center frequency in Hz
+channel_freq: 562000000         # center frequency of the FM radio channel in Hz
+channel_bandwidth: 4000000      # channel bandwidth in Hz
 
 #########################    PROCESSING PARAMETERS    ##########################
 
-# Nominal value for the coherent processing interval in seconds. The doppler 
+# Nominal value for the coherent processing interval (CPI) in seconds. The doppler 
 # resolution is inversely proportional to this, i.e. a 2 second CPI corresponds
 # to a Doppler resolution of 0.5Hz.
-cpi_seconds_nominal: 2.0 
+cpi_seconds_nominal: 0.5 
 max_doppler_nominal: 256.0  # The maximum desired doppler shift in Hz. 
-max_range_nominal: 200.0    # The maximum desired bistatic range in km.
+max_range_nominal: 25.0    # The maximum desired bistatic range in km.
 overlap_cpi: True           # whether to overlap CPI windows. 
-
-
-
-
