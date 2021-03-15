@@ -47,7 +47,7 @@ def main(config):
 
         # get the first few hundred thousand samples of data and use it to
         #  estimate the offset between the channels
-        data1 = inputFile[config['input_ref_path']][0:20*config['cpi_samples']]
+        data1 = inputFile[config['interleaved_data_path']][0:20*config['cpi_samples']]
         data1 = deinterleave_IQ(data1)
         refc1 = data1[0::2]
         srvc1 = data1[1::2]
@@ -68,8 +68,8 @@ def main(config):
             ref_data = ref_data[offset:]    
             srv_data = srv_data[:-offset]
         elif offset < 0:
-            ref_data = ref_data[:-offset]
-            srv_data = srv_data[offset:]
+            ref_data = ref_data[:offset]
+            srv_data = srv_data[-offset:]
 
         ref_data = ref_data.rechunk((config['input_chunk_length'],))
         srv_data = srv_data.rechunk((config['input_chunk_length'],))
