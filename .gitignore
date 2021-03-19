@@ -9,6 +9,7 @@ experimental/
 *.npz
 *.mp4
 
+results/
 IMG/
 
 # Ignore ds stores
