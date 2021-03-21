@@ -38,15 +38,3 @@ or, if you have [ffmpeg](https://ffmpeg.org/download.html) installed on your com
 ```
 python range_doppler_plot.py --config PRconfig.yaml --mode video
 ```
-
-You can also use a Kalman filter to track the targets:
-
-```
-python multitarget_kalman_tracker.py --config PRconfig.yaml --mode video
-```
-
-The target tracking functionality is still under development, currently it suffers from a lot of false positives. This could probably be improved by properly tuning the parameters. You can also try the simplified single-target tracker, which has fewer false positives but assumes that only one target is ever present:
-
-```
-python simple_kalman_tracker.py --config PRconfig.yaml --mode video
-```

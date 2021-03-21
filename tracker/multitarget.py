@@ -1,6 +1,4 @@
-''' Simple Kalman filter based target tracker for a single passive radar
-    target. Mostly intended as a simplified demonstration script. For better
-    performance, use multitarget_kalman_tracker.py'''
+''' Kalman filter based target tracker that can handle multiple targets'''
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,7 +9,7 @@ from tqdm import tqdm
 from celluloid import Camera
 
 from passiveRadar.config import getConfiguration
-from passiveRadar.target_detection import simple_target_tracker
+from passiveRadar.target_detection import multitarget_tracker
 from passiveRadar.target_detection import CFAR_2D
 from passiveRadar.plotting_tools import persistence
 
@@ -28,11 +26,6 @@ def parse_args():
         help="Path to the configuration file")
 
     parser.add_argument(
-        '--output',
-        type=str,
-        help="Output type")
-
-    parser.add_argument(
         '--mode',
         choices=['video', 'frames', 'plot'],
         default='plot',
@@ -42,13 +35,7 @@ def parse_args():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
-
-    args = parse_args()
-    config = getConfiguration(args.config)
-    xambgfile = config['range_doppler_map_fname']
-    xambg = np.abs(zarr.load(xambgfile))
-
+def multitarget_track_and_plot(config, xambg):
     print("Loaded range-doppler maps.")
     Nframes = xambg.shape[2]
     print("Applying CFAR filter...")
@@ -58,29 +45,31 @@ if __name__ == "__main__":
         CF[:, :, i] = CFAR_2D(xambg[:, :, i], 18, 4)
 
     print("Applying Kalman Filter...")
-    history = simple_target_tracker(
-        CF, config['max_range_actual'], config['max_doppler_actual'])
+    # run the target tracker
+    N_TRACKS = 10
+    tracker_history = multitarget_tracker(CF,
+                                          [config['max_doppler_actual'],
+                                              config['max_range_actual']],
+                                          N_TRACKS)
 
-    estimate = history['estimate']
-    measurement = history['measurement']
-    lockMode = history['lock_mode']
+    # find the indices of the tracks where there are confirmed targets
+    tracker_status = tracker_history['status']
+    tracker_status_confirmed_idx = np.nonzero(tracker_status != 2)
 
-    unlocked = lockMode[:, 0].astype(bool)
-    estimate_locked = estimate.copy()
-    estimate_locked[unlocked, 0] = np.nan
-    estimate_locked[unlocked, 1] = np.nan
-    estimate_unlocked = estimate.copy()
-    estimate_unlocked[~unlocked, 0] = np.nan
-    estimate_unlocked[~unlocked, 1] = np.nan
+    # get the range and doppler values for each target track
+    tracker_range = np.squeeze(tracker_history['estimate'][:, :, 0]).copy()
+    tracker_doppler = np.squeeze(tracker_history['estimate'][:, :, 1]).copy()
+
+    # if the target is uncorfirmed change the range/doppler values to nan
+    tracker_range[tracker_status_confirmed_idx] = np.nan
+    tracker_doppler[tracker_status_confirmed_idx] = np.nan
 
     if args.mode == 'plot':
-        plt.figure(figsize=(12, 8))
-        plt.plot(estimate_locked[:, 1],
-                 estimate_locked[:, 0], 'b', linewidth=3)
-        plt.plot(
-            estimate_unlocked[:, 1], estimate_unlocked[:, 0], c='r', linewidth=1, alpha=0.3)
-        plt.xlabel('Doppler Shift (Hz)')
-        plt.ylabel('Bistatic Range (km)')
+        # # plot the tracks
+        plt.figure(figsize=(16, 10))
+        plt.scatter(tracker_doppler, tracker_range, marker='.')
+        plt.xlabel("Doppler Shift (Hz)")
+        plt.ylabel("Bistatic Range (km)")
         plt.show()
 
     else:
@@ -124,15 +113,15 @@ if __name__ == "__main__":
             if kk > 3:
                 nr = np.arange(kk)
                 decay = np.flip(0.98**nr)
-                col = np.ones((kk, 4))
-                cc1 = col @ np.diag([0.2, 1.0, 0.7, 1.0])
-                cc2 = col @ np.diag([1.0, 0.2, 0.3, 1.0])
+                cc1 = np.ones((kk, 4))
+                cc1 = cc1 @ np.diag([0.2, 1.0, 0.7, 1.0])
                 cc1[:, 3] = decay
-                cc2[:, 3] = decay
-                plt.scatter(
-                    estimate_locked[:kk, 1], estimate_locked[:kk, 0], 8,  marker='.', color=cc1)
-                plt.scatter(
-                    estimate_unlocked[:kk, 1], estimate_unlocked[:kk, 0], 8,  marker='.', color=cc2)
+
+                cc1 = np.expand_dims(cc1, 1)
+                cc1 = np.tile(cc1, (1, 10, 1))
+
+                plt.scatter(tracker_doppler[:kk, :].flatten(), tracker_range[:kk, :].flatten(
+                ), 8,  marker='.', color=cc1.reshape(10*kk, 4))
 
             plt.xlim([-1*config['max_doppler_actual'],
                       config['max_doppler_actual']])
@@ -150,4 +139,14 @@ if __name__ == "__main__":
         if args.mode == 'video':
             print("Animating...")
             animation = camera.animate(interval=40)  # 25 fps
-            animation.save("SIMPLE_TRACKER_VIDEO.mp4", writer='ffmpeg')
+            animation.save("TRACKER_VIDEO.mp4", writer='ffmpeg')
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    config = getConfiguration(args.config)
+
+    xambgfile = config['range_doppler_map_fname']
+    xambg = np.abs(zarr.load(xambgfile))
+
+    multitarget_track_and_plot(config, xambg)
