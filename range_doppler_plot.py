@@ -6,7 +6,6 @@ import argparse
 from tqdm import tqdm
 from celluloid import Camera
 
-from passiveRadar.signal_utils import normalize
 from passiveRadar.target_detection import CFAR_2D
 from passiveRadar.plotting_tools import persistence
 from passiveRadar.config import getConfiguration

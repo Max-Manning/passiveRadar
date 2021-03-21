@@ -2,6 +2,7 @@
     cross-ambiguity function for passive radar '''
 
 import numpy as np
+from numba import jit
 import scipy.signal as signal
 from scipy.fftpack import fft   # use scipy's fftpack since np.fft.fft
 # automatically promotes input data to complex128
@@ -9,6 +10,7 @@ from scipy.fftpack import fft   # use scipy's fftpack since np.fft.fft
 from passiveRadar.signal_utils import frequency_shift, xcorr
 
 
+@jit(nopython=True)
 def fast_xambg(refChannel,
                srvChannel,
                rangeBins,
@@ -43,8 +45,6 @@ def fast_xambg(refChannel,
 
     '''
     if refChannel.shape != srvChannel.shape:
-        print(refChannel.shape)
-        print(srvChannel.shape)
         raise ValueError('Input vectors must have the same length')
 
     # if the iputs are too short, zero-pad to the correct length
@@ -87,38 +87,4 @@ def fast_xambg(refChannel,
 
     # take the FFT along the first axis (Doppler)
     xambg = np.fft.fftshift(fft(xambg, axis=0), axes=0)
-    return xambg
-
-
-def direct_xambg(refChannel, srvChannel, rangeBins, freqBins, sampleRate):
-    ''' Direct Cross-Ambiguity Fuction (time domain method)
-
-    Args:
-        refChannel: reference channel data
-        srvChannel: surveillance channel data
-        rangeBins:  number of range bins to compute
-        freqBins:   number of doppler bins to compute
-        sampleRate: input sample rate in Hz
-    Returns:
-        ndarray of dimensions (nf, nlag+1, 1) containing the cross-ambiguity
-        surface. third dimension added for easy stacking in dask.
-    '''
-    if refChannel.shape != srvChannel.shape:
-        raise ValueError('Input vectors must have the same length')
-
-    # calculate the coherent processing interval in seconds
-    CPI = refChannel.shape[0]/sampleRate
-
-    # pre-allocate space for the result
-    xambg = np.zeros((freqBins, rangeBins+1, 1), dtype=np.complex64)
-
-    # loop over frequency bins
-    for i in range(freqBins):
-        # get Doppler shift for the current bin
-        df = (i - 0.5*freqBins)/CPI
-        # create a frequency shifted copy of the reference signal
-        ref_shifted = frequency_shift(refChannel, df, sampleRate)
-        # correlate surveillance and shifted reference signals
-        xambg[i, :, 0] = xcorr(ref_shifted, srvChannel, rangeBins, 0)
-
     return xambg

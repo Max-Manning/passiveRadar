@@ -1,4 +1,3 @@
-from scipy.signal.signaltools import resample_poly
 import yaml
 import fractions
 import numpy as np

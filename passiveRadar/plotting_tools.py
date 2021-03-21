@@ -4,8 +4,6 @@ import numpy as np
 import scipy.signal as signal
 import matplotlib.pyplot as plt
 
-from passiveRadar.signal_utils import normalize
-
 
 def persistence(X, k, hold, decay):
     '''Add persistence (digital phosphor) effect along the time axis of 

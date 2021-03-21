@@ -17,51 +17,6 @@ kalman_filter_dtype = np.dtype([
     ('S', np.float, (2, 2))])  # innovation covariance matrix
 
 
-def kalman_update(measurement, currentState):
-    ''' The standard Kalman filter update algorithm
-
-    Parameters: 
-        measurement:     measurement vector for current time step
-        currentState:    kalman_filter_dtype containing the current filter state
-    Returns:
-        estimate:        the new estimate of the system state
-        newState:        the new filter state 
-    '''
-
-    x = currentState['x']  # state estimate vector
-    P = currentState['P']  # state estimate covariance matrix
-    F1 = currentState['F1']  # state transition model #1
-    F2 = currentState['F2']  # state transition model #2
-    Q = currentState['Q']  # process noise covariance matrix
-    H = currentState['H']  # measurement matrix
-    R = currentState['R']  # measurement noise covariance matrix
-    S = currentState['S']  # innovation covariance matrix
-
-    # update state according to state transition model #1
-    x = F1 @ x
-    # update state covariance according to state transition model #2
-    P = F2 @ P @ F2.T + Q
-    # compute the innovation covariance
-    S = H @ P @ H.T + R
-    # compute the optimal Kalman gain
-    K = P @ H.T @ np.linalg.inv(S)
-    # get the measurement
-    Z = measurement
-    # compute difference between prediction and measurement
-    y = Z - H @ x
-    # update the filter state
-    x = x + K @ y
-    # update the state covariance
-    P = (np.eye(4) - K @ H) @ P
-
-    # save the a posteriori state estimate
-    estimate = H @ x
-    # construct the new filter state
-    newState = (x, P, F1, F2, Q, H, R, S)
-
-    return estimate, newState
-
-
 def adaptive_kalman_update(measurement, lastMeasurement, currentState):
     ''' The standard Kalman filter update algorithm with adaptive estimation
     of the measurement covariance matrix.

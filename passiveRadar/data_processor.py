@@ -2,14 +2,12 @@ import numpy as np
 import zarr
 import dask.array as da
 import scipy.signal as signal
-from dask.diagnostics import ProgressBar
-from dask.distributed import Client
 import argparse
 
 from passiveRadar.config import getConfiguration
 from passiveRadar.signal_utils import find_channel_offset, \
     deinterleave_IQ, frequency_shift, resample, preprocess_kerberossdr_input
-from passiveRadar.clutter_removal import LS_Filter_Multiple, NLMS_filter
+from passiveRadar.clutter_removal import LS_Filter_Multiple
 from passiveRadar.range_doppler_processing import fast_xambg
 
 
@@ -173,15 +171,7 @@ def process_data(config):
     np.savez(config['meta_fname'], frame_timestamps=frame_timestamps,
              range_bins=range_bins, doppler_bins=doppler_bins)
 
-    # save the result to a zarr file
-    outfile = zarr.open(config['range_doppler_map_fname'],
-                        mode='w',
-                        shape=xambg.shape,
-                        chunks=(config['num_doppler_cells'],
-                                config['num_range_cells']+1, 1),
-                        dtype=xambg.dtype)
-    with ProgressBar():
-        xambg.to_zarr(outfile)
+    return xambg
 
 
 if __name__ == "__main__":
