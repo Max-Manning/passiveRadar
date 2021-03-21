@@ -35,8 +35,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def multitarget_track_and_plot(config, xambg, mode):
-    print("Loaded range-doppler maps.")
+def multitarget_track_and_plot(config, xambg, mode, image_path):
     Nframes = xambg.shape[2]
     print("Applying CFAR filter...")
     # CFAR filter each frame using a 2D kernel
@@ -66,11 +65,15 @@ def multitarget_track_and_plot(config, xambg, mode):
 
     if mode == 'plot':
         # # plot the tracks
-        plt.figure(figsize=(16, 10))
+        fig = plt.figure(figsize=(16, 10))
+        plt.xlim(left=-250, right=250)
+        plt.ylim(bottom=0, top=30)
         plt.scatter(tracker_doppler, tracker_range, marker='.')
-        plt.xlabel("Doppler Shift (Hz)")
-        plt.ylabel("Bistatic Range (km)")
-        plt.show()
+        # plt.savefig(image_path, dpi=200)
+        plt.axis('off')
+        plt.savefig(image_path, dpi=200, bbox_inches='tight',
+                    transparent=True, pad_inches=0)
+        plt.close()
 
     else:
 
@@ -149,4 +152,4 @@ if __name__ == "__main__":
     xambgfile = config['range_doppler_map_fname']
     xambg = np.abs(zarr.load(xambgfile))
 
-    multitarget_track_and_plot(config, xambg, args.mode)
+    multitarget_track_and_plot(config, xambg, args.mode, 'IMG_PLOT')
