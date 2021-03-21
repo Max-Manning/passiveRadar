@@ -38,3 +38,8 @@ To see how the data is, it is useful to run the following command
 ```
 python signal_preview.py --config PRconfig.yaml
 ```
+
+## Note
+
+It's necessary to install cupy to run this code in the GPU.
+https://github.com/rapidsai/cusignal#documentation

@@ -1,8 +1,12 @@
 import numpy as np
 from numba import jit
-import scipy.signal as signal
-from scipy.linalg import solve_toeplitz
 from passiveRadar.signal_utils import xcorr, frequency_shift
+#
+# https://docs.cupy.dev/en/stable/reference/generated/cupyx.scipy.linalg.toeplitz.html
+import cupy
+from cupy import cupyx
+from cupyx import scipy
+from scipy.linalg import solve_toeplitz
 
 
 @jit(nopython=True)
