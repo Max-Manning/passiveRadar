@@ -15,26 +15,26 @@ conda env create -f environment.yaml
 conda activate radar-env
 ```
 
+The run the whole data processing pipeline, i.e. read binary files then run tracking logic, you can run
+
+```
+python the_one_script.py --config prconfig.yaml
+```
+
+But if the main goal is to work on the AI processing or tracker, there's one script which uses some test data already processed and makes things much faster to develop. You can use the script below
+
+```
+python script_with_test_data.py.py --config prconfig.yaml
+```
+
+If there's the need to focus on the processing section, or you need to create new test data, run
+
+```
+python main.py --config PRconfig.yaml
+```
+
 To see how the data is, it is useful to run the following command
 
 ```
 python signal_preview.py --config PRconfig.yaml
-```
-
-Put the data file in the same directory as `main.py`, and run the following command to process the data and save it to a file:
-
-```
-python main.py --config prconfig.yaml
-```
-
-To create multiple images of Bistatic Range x Doppler Shift, you can run
-
-```
-python range_doppler_plot.py --config PRconfig.yaml --mode frames
-```
-
-or, if you have [ffmpeg](https://ffmpeg.org/download.html) installed on your computer, you can generate an animation.
-
-```
-python range_doppler_plot.py --config PRconfig.yaml --mode video
 ```
