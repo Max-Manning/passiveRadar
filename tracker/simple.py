@@ -42,7 +42,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def simple_tracker(config, xambg):
+def simple_tracker(config, xambg, mode):
     print("Loaded range-doppler maps.")
     Nframes = xambg.shape[2]
     print("Applying CFAR filter...")
@@ -67,7 +67,7 @@ def simple_tracker(config, xambg):
     estimate_unlocked[~unlocked, 0] = np.nan
     estimate_unlocked[~unlocked, 1] = np.nan
 
-    if args.mode == 'plot':
+    if mode == 'plot':
         plt.figure(figsize=(12, 8))
         plt.plot(estimate_locked[:, 1],
                  estimate_locked[:, 0], 'b', linewidth=3)
@@ -79,7 +79,7 @@ def simple_tracker(config, xambg):
 
     else:
 
-        if args.mode == 'frames':
+        if mode == 'frames':
             savedir = os.path.join(os.getcwd(),  "IMG")
             if not os.path.isdir(savedir):
                 os.makedirs(savedir)
@@ -95,7 +95,7 @@ def simple_tracker(config, xambg):
             data = persistence(CF, kk, 20, 0.90)
             data = np.fliplr(data.T)  # get the orientation right
 
-            if args.mode == 'frames':
+            if mode == 'frames':
                 # get the save name for this frame
                 svname = os.path.join(
                     savedir, 'img_' + "{0:0=3d}".format(kk) + '.png')
@@ -136,12 +136,12 @@ def simple_tracker(config, xambg):
             plt.xlabel('Doppler Shift (Hz)')
             plt.tight_layout()
 
-            if args.mode == 'frames':
+            if mode == 'frames':
                 plt.savefig(svname, dpi=200)
                 plt.close()
             else:
                 camera.snap()
-        if args.mode == 'video':
+        if mode == 'video':
             print("Animating...")
             animation = camera.animate(interval=40)  # 25 fps
             animation.save("SIMPLE_TRACKER_VIDEO.mp4", writer='ffmpeg')
@@ -154,4 +154,4 @@ if __name__ == "__main__":
     xambgfile = config['range_doppler_map_fname']
     xambg = np.abs(zarr.load(xambgfile))
 
-    simple_tracker(config, xambg)
+    simple_tracker(config, xambg, args.mode)

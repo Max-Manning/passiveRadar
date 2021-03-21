@@ -35,7 +35,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def multitarget_track_and_plot(config, xambg):
+def multitarget_track_and_plot(config, xambg, mode):
     print("Loaded range-doppler maps.")
     Nframes = xambg.shape[2]
     print("Applying CFAR filter...")
@@ -64,7 +64,7 @@ def multitarget_track_and_plot(config, xambg):
     tracker_range[tracker_status_confirmed_idx] = np.nan
     tracker_doppler[tracker_status_confirmed_idx] = np.nan
 
-    if args.mode == 'plot':
+    if mode == 'plot':
         # # plot the tracks
         plt.figure(figsize=(16, 10))
         plt.scatter(tracker_doppler, tracker_range, marker='.')
@@ -74,7 +74,7 @@ def multitarget_track_and_plot(config, xambg):
 
     else:
 
-        if args.mode == 'frames':
+        if mode == 'frames':
             savedir = os.path.join(os.getcwd(),  "IMG")
             if not os.path.isdir(savedir):
                 os.makedirs(savedir)
@@ -90,7 +90,7 @@ def multitarget_track_and_plot(config, xambg):
             data = persistence(CF, kk, 20, 0.90)
             data = np.fliplr(data.T)  # get the orientation right
 
-            if args.mode == 'frames':
+            if mode == 'frames':
                 # get the save name for this frame
                 svname = os.path.join(
                     savedir, 'img_' + "{0:0=3d}".format(kk) + '.png')
@@ -131,12 +131,12 @@ def multitarget_track_and_plot(config, xambg):
             plt.xlabel('Doppler Shift (Hz)')
             plt.tight_layout()
 
-            if args.mode == 'frames':
+            if mode == 'frames':
                 plt.savefig(svname, dpi=200)
                 plt.close()
             else:
                 camera.snap()
-        if args.mode == 'video':
+        if mode == 'video':
             print("Animating...")
             animation = camera.animate(interval=40)  # 25 fps
             animation.save("TRACKER_VIDEO.mp4", writer='ffmpeg')
@@ -149,4 +149,4 @@ if __name__ == "__main__":
     xambgfile = config['range_doppler_map_fname']
     xambg = np.abs(zarr.load(xambgfile))
 
-    multitarget_track_and_plot(config, xambg)
+    multitarget_track_and_plot(config, xambg, args.mode)
