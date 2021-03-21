@@ -1,5 +1,6 @@
 import numpy as np
 import zarr
+import os
 import dask.array as da
 import scipy.signal as signal
 from dask.diagnostics import ProgressBar
@@ -23,6 +24,7 @@ from passiveRadar.target_detection import simple_target_tracker
 from passiveRadar.target_detection import CFAR_2D
 from passiveRadar.plotting_tools import persistence
 from tracker.multitarget import multitarget_track_and_plot
+from machineLearning.main import identify_drones
 
 
 def parse_args():
@@ -222,9 +224,14 @@ if __name__ == "__main__":
     args = parse_args()
     config = getConfiguration(args.config)
 
+    image_path = os.path.join(os.getcwd(),  "results/one_script_processed.jpg")
+
     results = process_data(config)
-    multitarget_track_and_plot(config, results, 'plot')
-    # result = run_identification('image_path')  # ['noise', 'noise', 'drone_1']
+    multitarget_track_and_plot(config, np.abs(results), 'plot', image_path)
+    result = run_identification('image_path')  # ['noise', 'noise', 'drone_1']
+
+    identification_result = identify_drones(image_path)
+    print('Identification result', identification_result)
 
     # client = Client()
     # with performance_report(filename="dask-report.html"):
