@@ -1,6 +1,6 @@
 ''' Kalman filter based target tracker that can handle multiple targets'''
 
-import cupy as np
+import numpy as np
 import matplotlib.pyplot as plt
 import zarr
 import os

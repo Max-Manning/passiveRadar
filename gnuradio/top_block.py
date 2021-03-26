@@ -6,7 +6,7 @@
 #
 # GNU Radio Python Flow Graph
 # Title: Prototype Jr
-# GNU Radio version: 3.8.2.0
+# GNU Radio version: v3.8.2.0-102-gcc5a816b
 
 from distutils.version import StrictVersion
 
@@ -82,10 +82,10 @@ class top_block(gr.top_block, Qt.QWidget):
         ##################################################
         self._gain_1_range = Range(0, 30, 1, 10, 200)
         self._gain_1_win = RangeWidget(self._gain_1_range, self.set_gain_1, 'gain_1', "counter_slider", float)
-        self.top_grid_layout.addWidget(self._gain_1_win)
+        self.top_layout.addWidget(self._gain_1_win)
         self._gain_0_range = Range(0, 30, 1, 10, 200)
         self._gain_0_win = RangeWidget(self._gain_0_range, self.set_gain_0, 'gain_0', "counter_slider", float)
-        self.top_grid_layout.addWidget(self._gain_0_win)
+        self.top_layout.addWidget(self._gain_0_win)
         self.rtlsdr_source_1 = osmosdr.source(
             args="numchan=" + str(1) + " " + 'rtl=1'
         )
@@ -157,7 +157,7 @@ class top_block(gr.top_block, Qt.QWidget):
             self.qtgui_histogram_sink_x_0.set_line_alpha(i, alphas[i])
 
         self._qtgui_histogram_sink_x_0_win = sip.wrapinstance(self.qtgui_histogram_sink_x_0.pyqwidget(), Qt.QWidget)
-        self.top_grid_layout.addWidget(self._qtgui_histogram_sink_x_0_win)
+        self.top_layout.addWidget(self._qtgui_histogram_sink_x_0_win)
         self.qtgui_freq_sink_x_0 = qtgui.freq_sink_c(
             1024, #size
             firdes.WIN_HAMMING, #wintype
@@ -197,18 +197,17 @@ class top_block(gr.top_block, Qt.QWidget):
             self.qtgui_freq_sink_x_0.set_line_alpha(i, alphas[i])
 
         self._qtgui_freq_sink_x_0_win = sip.wrapinstance(self.qtgui_freq_sink_x_0.pyqwidget(), Qt.QWidget)
-        self.top_grid_layout.addWidget(self._qtgui_freq_sink_x_0_win)
+        self.top_layout.addWidget(self._qtgui_freq_sink_x_0_win)
         self.blocks_multiply_const_vxx_1 = blocks.multiply_const_cc(128)
         self.blocks_multiply_const_vxx_0 = blocks.multiply_const_cc(128)
-        self.blocks_file_sink_1 = blocks.file_sink(gr.sizeof_char*1, '/home/pi/Downloads/output1', False)
+        self.blocks_file_sink_1 = blocks.file_sink(gr.sizeof_char*1, '/home/aviguardx/Documents/passiveRadar/data/drone_tests_2/fixHeightTest7/output1', False)
         self.blocks_file_sink_1.set_unbuffered(False)
-        self.blocks_file_sink_0 = blocks.file_sink(gr.sizeof_char*1, '/home/pi/Downloads/output2', False)
+        self.blocks_file_sink_0 = blocks.file_sink(gr.sizeof_char*1, '/home/aviguardx/Documents/passiveRadar/data/drone_tests_2/fixHeightTest7/output2', False)
         self.blocks_file_sink_0.set_unbuffered(False)
         self.blocks_complex_to_real_1 = blocks.complex_to_real(1)
         self.blocks_complex_to_real_0 = blocks.complex_to_real(1)
         self.blocks_complex_to_interleaved_char_1 = blocks.complex_to_interleaved_char(False)
         self.blocks_complex_to_interleaved_char_0 = blocks.complex_to_interleaved_char(False)
-
 
 
         ##################################################

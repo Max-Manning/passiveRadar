@@ -34,11 +34,13 @@ if __name__ == "__main__":
     image_path = os.path.join(os.getcwd(),  "results/one_script_processed.jpg")
 
     results = process_data(config)
+    results = results.compute(scheduler='single-threaded')
     multitarget_track_and_plot(config, np.abs(results), 'plot', image_path)
-    result = run_identification('image_path')  # ['noise', 'noise', 'drone_1']
 
     identification_result = identify_drones(image_path)
     print('Identification result', identification_result)
+
+    # Send NEURAL NETWORK RESULT TO WEB SERVER
 
     # client = Client()
     # with performance_report(filename="dask-report.html"):

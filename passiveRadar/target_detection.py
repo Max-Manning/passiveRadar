@@ -2,7 +2,7 @@
 
 import cupy as np
 from passiveRadar.signal_utils import normalize
-import scipy.signal as signal
+import cusignal as signal
 
 
 # create a data type to represent the Kalman filter's internals

@@ -37,7 +37,7 @@ def process_data(config):
     srvc1 = svrInputFile[0:20*config['cpi_samples']]
 
     # TODO: Something is wrong with the offset. I'm setting manually to 0
-    offset = find_channel_offset(refc1, srvc1, 1, 5000000)
+    offset = find_channel_offset(refc1, srvc1, 2, 5000000)
 
     print('Offset', offset)
 
@@ -51,9 +51,9 @@ def process_data(config):
                                  chunks=(config['input_chunk_length'],))
 
     elif offset < 0:
-        ref_data = da.from_array(refInputFile[:-offset],
+        ref_data = da.from_array(refInputFile[:int(offset)],
                                  chunks=(config['input_chunk_length'],))
-        srv_data = da.from_array(svrInputFile[offset:],
+        srv_data = da.from_array(svrInputFile[int(-offset):],
                                  chunks=(config['input_chunk_length'],))
     else:
         ref_data = da.from_array(refInputFile,

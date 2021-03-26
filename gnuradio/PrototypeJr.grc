@@ -157,7 +157,7 @@ blocks:
     alias: ''
     append: 'False'
     comment: ''
-    file: /home/pi/Downloads/output2
+    file: /home/aviguardx/Documents/passiveRadar/data/drone_tests_2/fixHeightTest7/output2
     type: byte
     unbuffered: 'False'
     vlen: '1'
@@ -175,7 +175,7 @@ blocks:
     alias: ''
     append: 'False'
     comment: ''
-    file: /home/pi/Downloads/output1
+    file: /home/aviguardx/Documents/passiveRadar/data/drone_tests_2/fixHeightTest7/output1
     type: byte
     unbuffered: 'False'
     vlen: '1'

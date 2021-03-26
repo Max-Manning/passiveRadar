@@ -3,24 +3,25 @@
 
 from numba import jit
 import cupy as np
-import scipy.signal as signal
+import cusignal as signal
 
 
-@jit(nopython=True)
 def normalize(x):
     '''normalize ndarray to unit mean'''
-    return x/np.mean(np.abs(x).flatten())
+    x.compute()
+    foo = np.abs(x)
+    bar = foo.flatten()
+    return x/np.mean(bar)
 
 
-@jit(nopython=True)
 def decimate(x, q):
     '''decimate x by a factor of q'''
-    return signal.decimate(x, q, 20*q, ftype='fir', axis=0)
+    return signal.decimate(x, q, 20*q, axis=0)
 
 
 def resample(x, up, dn):
     '''rational resampling by a factor of up/dn'''
-    return signal.resample_poly(x, up, dn, padtype='line')
+    return signal.resample_poly(x, up, dn)
 
 
 def deinterleave_IQ(interleavedIQ):
@@ -29,14 +30,17 @@ def deinterleave_IQ(interleavedIQ):
     return (interleavedIQ[0:-1:2] + 1j*interleavedIQ[1::2]).astype(np.complex64)
 
 
-@jit(nopython=True)
 def frequency_shift(x, fc, Fs, phase_offset=0):
     '''frequency shift x by fc where Fs is the sample rate of x'''
+    #print('shape', x.shape[0])
     nn = np.arange(x.shape[0], dtype=np.complex64)
-    return x*np.exp(1j*2*np.pi*fc*nn/Fs + 1j*phase_offset)
+    foo = 1j*2*np.pi*fc*nn
+    foo = foo/Fs
+    foo = foo + 1
+    bar = np.exp(foo) 
+    return x*bar
 
 
-@jit(nopython=True)
 def xcorr(s1, s2, nlead, nlag):
     ''' cross-correlate s1 and s2 with sample offsets from -1*nlag to nlead'''
     return signal.correlate(s1, np.pad(s2, (nlag, nlead), mode='constant'),
@@ -45,8 +49,10 @@ def xcorr(s1, s2, nlead, nlag):
 
 def find_channel_offset(s1, s2, nd, nl):
     '''use cross-correlation to find channel offset in samples'''
-    B1 = signal.decimate(s1, nd)
-    B2 = np.pad(signal.decimate(s2, nd), (nl, nl), 'constant')
+    print('s1', s1)
+    print('nd', nd)
+    B1 = decimate(s1, nd)
+    B2 = np.pad(decimate(s2, nd), (nl, nl), 'constant')
     xc = np.abs(signal.correlate(B1, B2, mode='valid'))
     return (np.argmax(xc) - nl)*nd
 
@@ -57,8 +63,10 @@ def preprocess_kerberossdr_input(arr):
     '''
     mask = np.isnan(arr)
     idx = np.where(~mask, np.arange(mask.size), 0)
-    np.maximum.accumulate(idx, out=idx)
+    #print('maximum', np.ma
+    #np.maximum.accumulate(idx, out=idx)
     out = arr[idx]
 
     # Clip data to avoid having overflow when multiplying too big numbers
+    #return out
     return np.clip(out, -1e+10, 1e+10)

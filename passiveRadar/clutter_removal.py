@@ -3,13 +3,10 @@ from numba import jit
 from passiveRadar.signal_utils import xcorr, frequency_shift
 #
 # https://docs.cupy.dev/en/stable/reference/generated/cupyx.scipy.linalg.toeplitz.html
-import cupy
-from cupy import cupyx
 from cupyx import scipy
 from scipy.linalg import solve_toeplitz
 
 
-@jit(nopython=True)
 def LS_Filter_Toeplitz(refChannel, srvChannel, filterLen, peek=10):
     '''Block east squares adaptive filter. Computes filter coefficients using
     scipy's solve_toeplitz function. This assumes the autocorrelation matrix of 
@@ -61,7 +58,6 @@ def LS_Filter_Toeplitz(refChannel, srvChannel, filterLen, peek=10):
     return srvChannelFiltered
 
 
-@jit(nopython=True)
 def LS_Filter_Multiple(refChannel, srvChannel, filterLen, sampleRate,
                        dopplerBins=[0]):
     '''Clutter removal with least squares filter. This function allows the least
