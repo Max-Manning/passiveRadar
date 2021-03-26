@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as np
 import zarr
 import dask.array as da
 import scipy.signal as signal

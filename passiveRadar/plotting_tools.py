@@ -1,6 +1,6 @@
 ''' plotting_tools.py '''
 
-import numpy as np
+import cupy as np
 import matplotlib.pyplot as plt
 
 

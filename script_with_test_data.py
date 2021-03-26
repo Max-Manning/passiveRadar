@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as np
 import zarr
 import os
 import argparse

@@ -1,6 +1,6 @@
 ''' target_detection.py: target detection tools for passive radar '''
 
-import numpy as np
+import cupy as np
 from passiveRadar.signal_utils import normalize
 import scipy.signal as signal
 

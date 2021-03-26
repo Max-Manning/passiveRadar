@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as np
 from numba import jit
 from passiveRadar.signal_utils import xcorr, frequency_shift
 #

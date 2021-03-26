@@ -2,7 +2,7 @@
     for passive radar processing '''
 
 from numba import jit
-import numpy as np
+import cupy as np
 import scipy.signal as signal
 
 

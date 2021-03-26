@@ -2,7 +2,7 @@
     target. Mostly intended as a simplified demonstration script. For better
     performance, use multitarget_kalman_tracker.py'''
 
-import numpy as np
+import cupy as np
 import matplotlib.pyplot as plt
 import zarr
 import os

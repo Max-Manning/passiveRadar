@@ -1,6 +1,6 @@
 import yaml
 import fractions
-import numpy as np
+import cupy as np
 
 
 def getConfiguration(config_fname):
