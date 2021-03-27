@@ -384,7 +384,8 @@ def update_track(currentState, newMeasurement):
         # no suitable measurements have been assigned to this track.
         # extrapolate the next state from the current state estimate.
         newEstimate, newKalmanState = kalman_extrapolate(kalmanState)
-        newTargetFoundHistory = np.concatenate(([0], targetFoundHistory[:-1]))
+        newTargetFoundHistory = np.concatenate(
+            (np.array([0]), targetFoundHistory[:-1]))
         newMeasurement = measurement  # just keep the last confirmed measurement
 
     else:
@@ -392,7 +393,8 @@ def update_track(currentState, newMeasurement):
         # use the Kalman filter to update the state estimate
         newEstimate, newKalmanState = adaptive_kalman_update(newMeasurement,
                                                              measurement, kalmanState)
-        newTargetFoundHistory = np.concatenate(([1], targetFoundHistory[:-1]))
+        newTargetFoundHistory = np.concatenate(
+            (np.array([1]), targetFoundHistory[:-1]))
 
     # if the track status is currently 1 (preliminary), we can decide to either
     # promote it to a confirmed target track or kill it depending on how many
