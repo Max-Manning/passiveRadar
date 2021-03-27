@@ -1,9 +1,9 @@
 import cupy as np
+import numpy
 from numba import jit
 from passiveRadar.signal_utils import xcorr, frequency_shift
 #
 # https://docs.cupy.dev/en/stable/reference/generated/cupyx.scipy.linalg.toeplitz.html
-from cupyx import scipy
 from scipy.linalg import solve_toeplitz
 
 
@@ -46,9 +46,11 @@ def LS_Filter_Toeplitz(refChannel, srvChannel, filterLen, peek=10):
     # compute the cross-correlation of ref and srv
     xcorrSrvRef = xcorr(srvChannel, refChannelShift, 0,
                         filterLen + peek - 1)
-
     # solve the Toeplitz least squares problem
-    filterTaps = solve_toeplitz(autocorrRef, xcorrSrvRef)
+    autocorrRefCpu = autocorrRef.get()
+    xcorrSrvRefCpu = xcorrSrvRef.get()
+    filterTaps = solve_toeplitz(autocorrRefCpu, xcorrSrvRefCpu)
+    filterTaps = np.array(filterTaps)
 
     # compute clutter signal and remove from surveillance Channel
     clutter = np.convolve(refChannelShift, filterTaps, mode='full')

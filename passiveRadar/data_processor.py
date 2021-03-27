@@ -1,7 +1,7 @@
 import cupy as np
 import zarr
 import dask.array as da
-import scipy.signal as signal
+import cusignal as signal
 import argparse
 
 from passiveRadar.config import getConfiguration

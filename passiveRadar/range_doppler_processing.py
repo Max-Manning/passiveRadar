@@ -3,14 +3,13 @@
 
 import cupy as np
 from numba import jit
-import scipy.signal as signal
-from scipy.fftpack import fft   # use scipy's fftpack since np.fft.fft
+import cusignal as signal
+from cupyx.scipy.fftpack import fft   # use scipy's fftpack since np.fft.fft
 # automatically promotes input data to complex128
 
 from passiveRadar.signal_utils import frequency_shift, xcorr
 
 
-@jit(nopython=True)
 def fast_xambg(refChannel,
                srvChannel,
                rangeBins,
