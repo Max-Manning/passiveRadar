@@ -8,10 +8,7 @@ import cusignal as signal
 
 def normalize(x):
     '''normalize ndarray to unit mean'''
-    x.compute()
-    foo = np.abs(x)
-    bar = foo.flatten()
-    return x/np.mean(bar)
+    return x/np.mean(np.abs(x).flatten())
 
 
 def decimate(x, q):
@@ -49,8 +46,6 @@ def xcorr(s1, s2, nlead, nlag):
 
 def find_channel_offset(s1, s2, nd, nl):
     '''use cross-correlation to find channel offset in samples'''
-    print('s1', s1)
-    print('nd', nd)
     B1 = decimate(s1, nd)
     B2 = np.pad(decimate(s2, nd), (nl, nl), 'constant')
     xc = np.abs(signal.correlate(B1, B2, mode='valid'))

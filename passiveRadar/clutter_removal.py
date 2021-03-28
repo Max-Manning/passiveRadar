@@ -50,7 +50,7 @@ def LS_Filter_Toeplitz(refChannel, srvChannel, filterLen, peek=10):
     autocorrRefCpu = autocorrRef.get()
     xcorrSrvRefCpu = xcorrSrvRef.get()
     filterTaps = solve_toeplitz(autocorrRefCpu, xcorrSrvRefCpu)
-    filterTaps = np.array(filterTaps)
+    filterTaps = np.asarray(filterTaps)
 
     # compute clutter signal and remove from surveillance Channel
     clutter = np.convolve(refChannelShift, filterTaps, mode='full')

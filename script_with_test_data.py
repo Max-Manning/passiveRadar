@@ -35,6 +35,7 @@ if __name__ == "__main__":
     print('New image will be printed in', image_path)
 
     results = zarr.load('./TEST_DATA')
+    results = np.array(results)
     multitarget_track_and_plot(config, np.abs(results), args.mode, image_path)
 
     # It might be interesting to remove the np.abs

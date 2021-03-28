@@ -139,12 +139,12 @@ def process_data(config):
                                 chunks=(config['output_chunk_length'],))
 
     # This is making everything NAN
-    if config['overlap_cpi']:
-        # pad chunks with overlapping sections
-        ref_data = da.overlap.overlap(
-            ref_data, depth=config['window_overlap'], boundary=0)
-        srv_cleaned = da.overlap.overlap(
-            srv_cleaned, depth=config['window_overlap'], boundary=0)
+    # if config['overlap_cpi']:
+    #    # pad chunks with overlapping sections
+    #    ref_data = da.overlap.overlap(
+    #        ref_data, depth=config['window_overlap'], boundary=0)
+    #    srv_cleaned = da.overlap.overlap(
+    #        srv_cleaned, depth=config['window_overlap'], boundary=0)
 
     window = signal.get_window(('kaiser', 5.0), config['cpi_samples'])
 

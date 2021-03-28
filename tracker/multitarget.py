@@ -47,17 +47,17 @@ def multitarget_track_and_plot(config, xambg, mode, image_path):
     # run the target tracker
     N_TRACKS = 10
     tracker_history = multitarget_tracker(CF,
-                                          [config['max_doppler_actual'],
-                                              config['max_range_actual']],
+                                          np.array([config['max_doppler_actual'],
+                                              config['max_range_actual']]),
                                           N_TRACKS)
 
     # find the indices of the tracks where there are confirmed targets
-    tracker_status = tracker_history['status']
+    tracker_status = np.array(tracker_history['status'])
     tracker_status_confirmed_idx = np.nonzero(tracker_status != 2)
 
     # get the range and doppler values for each target track
-    tracker_range = np.squeeze(tracker_history['estimate'][:, :, 0]).copy()
-    tracker_doppler = np.squeeze(tracker_history['estimate'][:, :, 1]).copy()
+    tracker_range = np.squeeze(np.array(tracker_history['estimate'])[:, :, 0]).copy()
+    tracker_doppler = np.squeeze(np.array(tracker_history['estimate'])[:, :, 1]).copy()
 
     # if the target is uncorfirmed change the range/doppler values to nan
     tracker_range[tracker_status_confirmed_idx] = np.nan
@@ -68,7 +68,7 @@ def multitarget_track_and_plot(config, xambg, mode, image_path):
         fig = plt.figure(figsize=(16, 10))
         plt.xlim(left=-250, right=250)
         plt.ylim(bottom=0, top=30)
-        plt.scatter(tracker_doppler, tracker_range, marker='.')
+        plt.scatter(tracker_doppler.get(), tracker_range.get(), marker='.')
         # plt.savefig(image_path, dpi=200)
         plt.axis('off')
         plt.savefig(image_path, dpi=200, bbox_inches='tight',

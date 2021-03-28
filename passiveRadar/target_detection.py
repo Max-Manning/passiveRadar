@@ -1,9 +1,14 @@
 ''' target_detection.py: target detection tools for passive radar '''
 
-import cupy as np
-from passiveRadar.signal_utils import normalize
+import numpy as np
+import cupy as cp
 import cusignal as signal
 
+
+
+def normalize(x):
+    '''normalize ndarray to unit mean'''
+    return x/np.mean(np.abs(x).flatten())
 
 # create a data type to represent the Kalman filter's internals
 kalman_filter_dtype = np.dtype([
@@ -181,12 +186,12 @@ def get_measurements(dataFrame, p, frame_extent):
 
     # sort the candidate measurements in decreasing order of strength
     sort_idx = np.flip(np.argsort(candidateStrength))
-    candidateRange = candidateRange[sort_idx]
-    candidateDoppler = candidateDoppler[sort_idx]
-    candidateStrength = candidateStrength[sort_idx]
+    candidateRange = np.array(candidateRange[sort_idx].get())
+    candidateDoppler = np.array(candidateDoppler[sort_idx].get())
+    candidateStrength = np.array(candidateStrength[sort_idx])
 
-    candidateMeas = np.stack(
-        (candidateRange, candidateDoppler, candidateStrength))
+    candidateTup = (candidateRange, candidateDoppler, candidateStrength)
+    candidateMeas = np.stack(candidateTup)
 
     return candidateMeas
 
@@ -352,13 +357,13 @@ def initialize_track(measurement):
     lifetime = 1
     estimate = H @ x
     measurement = np.array([r, f])
-    targetHistory = np.zeros((20,))
-    targetHistory[0] = 1
-    targetHistory[5:10] = 1
-    kalmanState = (x, P, F1, F2, Q, H, R, S)
+    measurement_history = np.zeros((20,))
+    measurement_history[0] = 1
+    measurement_history[5:10] = 1
+    kalman_state = (x, P, F1, F2, Q, H, R, S)
 
-    initialTrackState = np.array([(status, lifetime, estimate, measurement,
-                                   targetHistory, kalmanState)], dtype=target_track_dtype)
+    initialTrackState = np.array([(status, lifetime, measurement, estimate,
+                                   measurement_history, kalman_state)], dtype=target_track_dtype)
 
     return initialTrackState
 
@@ -438,7 +443,7 @@ def multitarget_tracker(data, frame_extent, N_TRACKS):
                         Contains the complete state of each of the target tracks
                         at each time step
     '''
-
+    data = np.array(data.get())
     # number of data frames
     Nframes = data.shape[2]
 

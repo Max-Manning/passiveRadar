@@ -73,16 +73,16 @@ def fast_xambg(refChannel,
         # 10*decimation factor).
         dtaps = signal.firwin(10*ndecim + 1, 1. / ndecim, window='flattop')
 
-    dfilt = signal.dlti(dtaps, 1)
+    #dfilt = signal.dlti(dtaps, 1)
 
     # loop over range bins
     for k, lag in enumerate(np.arange(-1*rangeBins, 1)):
-        channelProduct = np.roll(srvChannelConj, lag)*refChannel
+        channelProduct = np.roll(srvChannelConj, np.asnumpy(lag))*refChannel
         if window is not None:
             channelProduct *= window
         # decimate the product of the reference channel and the delayed surveillance channel
         xambg[:, k, 0] = signal.decimate(
-            channelProduct, ndecim, ftype=dfilt)[0:freqBins]
+            channelProduct, ndecim)[0:freqBins]
 
     # take the FFT along the first axis (Doppler)
     xambg = np.fft.fftshift(fft(xambg, axis=0), axes=0)
